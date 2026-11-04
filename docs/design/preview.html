@@ -10,7 +10,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
 <style>
+/* Single light theme by design: this page previews the product's own light interface. */
 :root{
+  color-scheme:light;
   --navy:#003278;
   --blue:#0050E7;
   --blue-ink:#0043C2;
@@ -32,6 +34,7 @@
 [hidden]{display:none !important}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);background:var(--paper)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--paper)}
 h1,h2,h3{margin:0;color:var(--navy);font-weight:600}
 h1{font-size:24px;line-height:1.25;letter-spacing:-.01em}
 h2{font-size:16px;line-height:1.35}
@@ -65,7 +68,7 @@ svg.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-widt
 .me b{display:block;color:#fff;font-weight:600}
 .me small{color:#8CA3CC}
 
-.top{grid-area:top;position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:14px 28px;background:var(--paper)}
+.top{grid-area:top;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;align-items:center;gap:10px;padding:14px 28px;background:var(--paper)}
 .search{flex:1;max-width:460px;display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;background:var(--surface);border:1px solid var(--line);border-radius:10px;color:var(--ink-3)}
 .search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--ink)}
 .search:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-100)}
@@ -364,7 +367,7 @@ textarea:focus,.fld input:focus,.fld select:focus{outline:0;border-color:var(--b
 
 /* ---------- Drawer, toast ---------- */
 .scrim{position:fixed;inset:0;z-index:40;background:rgba(8,24,56,.38)}
-.drawer{position:fixed;inset-block:0;inset-inline-end:0;z-index:41;display:flex;flex-direction:column;width:min(420px,100%);background:var(--surface);box-shadow:0 0 40px rgba(0,20,60,.22);animation:slideIn .22s ease-out}
+.drawer{position:fixed;inset-block:0;inset-inline-end:0;z-index:41;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);width:min(420px,100%);background:var(--surface);box-shadow:0 0 40px rgba(0,20,60,.22);animation:slideIn .22s ease-out}
 @keyframes slideIn{from{transform:translateX(-100%)}to{transform:none}}
 .drawer header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line)}
 .drawer form{display:flex;flex-direction:column;gap:14px;flex:1;overflow-y:auto;padding:18px 20px}
@@ -375,9 +378,9 @@ textarea:focus,.fld input:focus,.fld select:focus{outline:0;border-color:var(--b
 .req::after{content:" *";color:#A1203A}
 .check{display:flex;align-items:center;gap:8px;cursor:pointer}
 .drawer footer{display:flex;justify-content:flex-end;gap:8px;margin-top:auto;padding-top:8px}
-.toast{position:fixed;bottom:24px;left:50%;z-index:50;max-width:calc(100% - 32px);padding:12px 18px;border-radius:12px;background:var(--navy);color:#fff;box-shadow:0 10px 30px rgba(0,30,80,.3);opacity:0;pointer-events:none;transform:translate(-50%,12px);transition:opacity .2s,transform .2s}
+.toast{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom,0px));left:50%;z-index:50;max-width:calc(100% - 32px);padding:12px 18px;border-radius:12px;background:var(--navy);color:#fff;box-shadow:0 10px 30px rgba(0,30,80,.3);opacity:0;pointer-events:none;transform:translate(-50%,12px);transition:opacity .2s,transform .2s}
 .toast.show{opacity:1;transform:translate(-50%,0)}
-.tabbar,.fab{display:none}
+.tabbar,.fab,.foot-note{display:none}
 
 /* ---------- Responsive ---------- */
 @media (max-width:1280px){
@@ -392,7 +395,7 @@ textarea:focus,.fld input:focus,.fld select:focus{outline:0;border-color:var(--b
 }
 @media (max-width:900px){
   .app{grid-template-columns:minmax(0,1fr);grid-template-areas:"top" "main"}
-  .side{position:fixed;inset-block:0;inset-inline-start:0;z-index:45;width:272px;height:100%;transform:translateX(100%);transition:transform .22s}
+  .side{position:fixed;inset-block:0;inset-inline-start:0;z-index:45;width:272px;height:100%;padding-top:calc(22px + env(safe-area-inset-top,0px));padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(100%);transition:transform .22s}
   .side.open{transform:none}
   .top{padding:10px 16px}
   .top .mob{display:inline-grid}
@@ -403,12 +406,13 @@ textarea:focus,.fld input:focus,.fld select:focus{outline:0;border-color:var(--b
   .builder{grid-template-columns:minmax(0,1fr)}
   .builder .blocks{order:2}
   .builder .props{order:3}
-  .tabbar{position:fixed;inset-inline:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(5,1fr);height:64px;padding-bottom:env(safe-area-inset-bottom);background:var(--surface);border-top:1px solid var(--line)}
+  .tabbar{position:fixed;inset-inline:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(5,1fr);height:calc(64px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:var(--surface);border-top:1px solid var(--line)}
   .tabbar a,.tabbar button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:0;background:transparent;color:var(--ink-3);font-size:11px;text-decoration:none}
   .tabbar .on{color:var(--blue)}
-  .fab{position:fixed;bottom:80px;left:16px;z-index:31;display:grid;place-items:center;width:56px;height:56px;border:0;border-radius:18px;background:var(--blue);color:#fff;box-shadow:0 8px 22px rgba(0,80,231,.35)}
+  .fab{position:fixed;bottom:calc(80px + env(safe-area-inset-bottom,0px));left:calc(16px + env(safe-area-inset-left,0px));z-index:31;display:grid;place-items:center;width:56px;height:56px;border:0;border-radius:18px;background:var(--blue);color:#fff;box-shadow:0 8px 22px rgba(0,80,231,.35)}
   .fab svg{width:24px;height:24px}
-  .toast{bottom:88px}
+  .toast{bottom:calc(88px + env(safe-area-inset-bottom,0px))}
+  .foot-note{display:block;margin-top:24px;font-size:12px;color:var(--ink-3);text-align:center}
 }
 @media (max-width:760px){
   h1{font-size:21px}
@@ -521,7 +525,7 @@ textarea:focus,.fld input:focus,.fld select:focus{outline:0;border-color:var(--b
       <p class="nav-group">ניהול</p>
       <a href="#automations" data-go="automations"><svg class="i"><use href="#i-zap"/></svg>אוטומציות</a>
       <a href="#reports" data-go="reports"><svg class="i"><use href="#i-chart"/></svg>דוחות</a>
-      <a href="#settings" data-go="settings"><svg class="i"><use href="#i-sliders"/></svg>הגדרות</a>
+      <a href="#admin" data-go="admin"><svg class="i"><use href="#i-sliders"/></svg>הגדרות</a>
     </nav>
     <p class="side-note">הדמיה לאישור עיצוב. כל השמות, המספרים והנתונים לדוגמה.</p>
     <div class="me"><span class="av p1">ד</span><div><b>דנה ל.</b><small>מנהלת מכירות</small></div></div>
@@ -530,7 +534,7 @@ textarea:focus,.fld input:focus,.fld select:focus{outline:0;border-color:var(--b
   <header class="top">
     <button class="ib mob" id="menuBtn" aria-label="פתיחת התפריט"><svg class="i"><use href="#i-menu"/></svg></button>
     <img class="top-mark mob" src="data:image/webp;base64,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" alt="מיתר">
-    <label class="search"><svg class="i"><use href="#i-search"/></svg><input type="search" placeholder="חיפוש לפי שם או טלפון" aria-label="חיפוש לפי שם או טלפון"></label>
+    <label class="search"><svg class="i"><use href="#i-search"/></svg><input type="search" id="search" placeholder="חיפוש לפי שם או טלפון" aria-label="חיפוש לפי שם או טלפון"></label>
     <button class="btn primary new-lead" data-open="quickadd"><svg class="i"><use href="#i-plus"/></svg>ליד חדש</button>
     <button class="ib" aria-label="התראות, 3 חדשות"><svg class="i"><use href="#i-bell"/></svg><span class="bell-dot"></span></button>
   </header>
@@ -885,11 +889,11 @@ textarea:focus,.fld input:focus,.fld select:focus{outline:0;border-color:var(--b
               </div>
             </div>
             <div class="cpane" data-cp="note" hidden>
-              <textarea rows="3" placeholder="כתבו הערה" aria-label="הערה"></textarea>
+              <textarea id="note-text" rows="3" placeholder="כתבו הערה" aria-label="הערה"></textarea>
               <div class="crow"><span></span><button class="btn primary" data-toast="ההערה נשמרה">שמירת הערה</button></div>
             </div>
             <div class="cpane" data-cp="task" hidden>
-              <textarea rows="2" placeholder="מה צריך לעשות?" aria-label="משימה"></textarea>
+              <textarea id="task-text" rows="2" placeholder="מה צריך לעשות?" aria-label="משימה"></textarea>
               <div class="crow"><span class="muted">למחר, 10:00, דנה ל.</span><button class="btn primary" data-toast="המשימה נוספה">הוספת משימה</button></div>
             </div>
           </div>
@@ -968,11 +972,11 @@ textarea:focus,.fld input:focus,.fld select:focus{outline:0;border-color:var(--b
                   <li><b>טאבו</b><span>קרקע פרטית רשומה</span></li>
                   <li><b>100 מ׳</b><span>מתחנת המטרו</span></li>
                 </ul>
-                <form class="lp-form selected" onsubmit="return false">
+                <form class="lp-form selected" id="lpForm">
                   <p class="lp-form-title">רוצים לשמוע פרטים?</p>
-                  <input placeholder="שם מלא" aria-label="שם מלא">
-                  <input placeholder="טלפון" aria-label="טלפון" inputmode="tel">
-                  <label class="lp-consent"><input type="checkbox" checked>אשמח לקבל עדכונים ומידע שיווקי מקבוצת מיתר</label>
+                  <input id="lp-name" placeholder="שם מלא" aria-label="שם מלא">
+                  <input id="lp-phone" placeholder="טלפון" aria-label="טלפון" inputmode="tel">
+                  <label class="lp-consent"><input type="checkbox" id="lp-consent" checked>אשמח לקבל עדכונים ומידע שיווקי מקבוצת מיתר</label>
                   <button type="button" data-toast="בדף האמיתי: הליד נכנס למערכת ומקבל וואטסאפ">שלחו לי פרטים</button>
                 </form>
                 <p class="lp-disc">גילוי נאות: הקרקע אינה זמינה לבנייה במצבה הנוכחי. אין לראות במידע זה התחייבות לתשואה או ייעוץ השקעות.</p>
@@ -1057,7 +1061,7 @@ textarea:focus,.fld input:focus,.fld select:focus{outline:0;border-color:var(--b
           <div class="panel-head"><h2>פוסט לעמוד</h2><span class="muted">פייסבוק ואינסטגרם</span></div>
           <div class="post-body">
             <div class="post-img"><svg viewBox="40 20 220 130" preserveAspectRatio="xMidYMid slice" role="img" aria-label="תמונת הפוסט"><use href="#map"/></svg></div>
-            <textarea rows="5" aria-label="טקסט הפוסט">מטרו רעננה: קרקע פרטית רשומה בטאבו, כ-100 מטר מתחנת מטרו עתידית. השאירו פרטים ונחזור אליכם עם כל המידע.</textarea>
+            <textarea id="post-text" rows="5" aria-label="טקסט הפוסט">מטרו רעננה: קרקע פרטית רשומה בטאבו, כ-100 מטר מתחנת מטרו עתידית. השאירו פרטים ונחזור אליכם עם כל המידע.</textarea>
           </div>
           <div class="post-targets">
             <label class="sw"><input type="checkbox" checked><span class="knob"></span>עמוד הפייסבוק</label>
@@ -1110,7 +1114,8 @@ textarea:focus,.fld input:focus,.fld select:focus{outline:0;border-color:var(--b
     <section data-screen="inbox" hidden><div class="ph"><span class="ph-ic"><svg class="i"><use href="#i-wa"/></svg></span><h2>תיבת וואטסאפ</h2><p>כל השיחות מהמספר העסקי במקום אחד, לפי נציג, עם תבניות מאושרות ותפוצות לקהלים. כל הודעה נשמרת גם בכרטיס הליד.</p><span class="chip">שלב 2</span></div></section>
     <section data-screen="tasks" hidden><div class="ph"><span class="ph-ic"><svg class="i"><use href="#i-check"/></svg></span><h2>משימות</h2><p>מה להיום, מה באיחור ומה בקרוב. חלק מהמשימות נוצרות לבד, למשל חזרה ללקוח שלא ענה או פולואפ אחרי פגישה.</p><span class="chip">שלב 1</span></div></section>
     <section data-screen="reports" hidden><div class="ph"><span class="ph-ic"><svg class="i"><use href="#i-chart"/></svg></span><h2>דוחות</h2><p>משפך, ביצועי נציגים, מקורות וקמפיינים, ועלות לליד, לפגישה ולעסקה. ייצוא לאקסל וסיכום יומי בוואטסאפ.</p><span class="chip">שלבים 1 עד 3</span></div></section>
-    <section data-screen="settings" hidden><div class="ph"><span class="ph-ic"><svg class="i"><use href="#i-sliders"/></svg></span><h2>הגדרות</h2><p>משתמשים ותפקידים, סטטוסים, מקורות, פרויקטים, שדות ושעות פעילות. וגם החיבורים: וואטסאפ, Meta, Google ודומיינים.</p><span class="chip">שלב 1</span></div></section>
+    <section data-screen="admin" hidden><div class="ph"><span class="ph-ic"><svg class="i"><use href="#i-sliders"/></svg></span><h2>הגדרות</h2><p>משתמשים ותפקידים, סטטוסים, מקורות, פרויקטים, שדות ושעות פעילות. וגם החיבורים: וואטסאפ, Meta, Google ודומיינים.</p><span class="chip">שלב 1</span></div></section>
+    <p class="foot-note">הדמיה לאישור עיצוב. כל השמות, המספרים והנתונים לדוגמה.</p>
   </main>
 
   <nav class="tabbar" aria-label="ניווט מהיר">
@@ -1127,14 +1132,14 @@ textarea:focus,.fld input:focus,.fld select:focus{outline:0;border-color:var(--b
 <aside class="drawer" id="quickadd" role="dialog" aria-modal="true" aria-labelledby="qa-title" hidden>
   <header><h2 id="qa-title">ליד חדש</h2><button class="ib" data-close aria-label="סגירה"><svg class="i"><use href="#i-x"/></svg></button></header>
   <form id="qaForm">
-    <label class="fld"><span class="req">שם מלא</span><input name="fullName" required autocomplete="off" placeholder="לדוגמה: ישראל ישראלי"></label>
-    <label class="fld"><span class="req">טלפון</span><input name="phone" required inputmode="tel" dir="ltr" autocomplete="off" placeholder="050-0000000"><small>נבדוק אוטומטית אם הליד כבר קיים</small></label>
-    <label class="fld"><span>פרויקט</span><select name="project"><option>מטרו רעננה</option><option>נופי הירקון</option><option>מטרופארק</option><option>בן יהודה צפון</option><option>קפריסין</option><option>יוון</option></select></label>
-    <label class="fld"><span>מקור</span><select name="source"><option>שיחה נכנסת</option><option>הפניה</option><option>אירוע</option><option>אחר</option></select></label>
-    <label class="fld"><span>נציג</span><select name="owner"><option value="auto">שיוך אוטומטי</option><option>דנה ל.</option><option>שירה כ.</option><option>רועי מ.</option></select></label>
-    <label class="fld"><span>הערה</span><textarea name="note" rows="2"></textarea></label>
-    <label class="check"><input type="checkbox" name="welcome" checked>לשלוח וואטסאפ ״ברוכים הבאים״</label>
-    <label class="check"><input type="checkbox" name="consent">הלקוח אישר לקבל מידע שיווקי</label>
+    <label class="fld"><span class="req">שם מלא</span><input id="qa-name" name="fullName" required autocomplete="off" placeholder="לדוגמה: ישראל ישראלי"></label>
+    <label class="fld"><span class="req">טלפון</span><input id="qa-phone" name="phone" required inputmode="tel" dir="ltr" autocomplete="off" placeholder="050-0000000"><small>נבדוק אוטומטית אם הליד כבר קיים</small></label>
+    <label class="fld"><span>פרויקט</span><select id="qa-project" name="project"><option>מטרו רעננה</option><option>נופי הירקון</option><option>מטרופארק</option><option>בן יהודה צפון</option><option>קפריסין</option><option>יוון</option></select></label>
+    <label class="fld"><span>מקור</span><select id="qa-source" name="source"><option>שיחה נכנסת</option><option>הפניה</option><option>אירוע</option><option>אחר</option></select></label>
+    <label class="fld"><span>נציג</span><select id="qa-owner" name="owner"><option value="auto">שיוך אוטומטי</option><option>דנה ל.</option><option>שירה כ.</option><option>רועי מ.</option></select></label>
+    <label class="fld"><span>הערה</span><textarea id="qa-note" name="note" rows="2"></textarea></label>
+    <label class="check"><input type="checkbox" id="qa-welcome" name="welcome" checked>לשלוח וואטסאפ ״ברוכים הבאים״</label>
+    <label class="check"><input type="checkbox" id="qa-consent" name="consent">הלקוח אישר לקבל מידע שיווקי</label>
     <footer><button type="button" class="btn ghost" data-close>ביטול</button><button type="submit" class="btn primary">שמירת ליד</button></footer>
   </form>
 </aside>
@@ -1321,6 +1326,7 @@ textarea:focus,.fld input:focus,.fld select:focus{outline:0;border-color:var(--b
   });
 
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAll(); });
+  $('#lpForm').addEventListener('submit', function (e) { e.preventDefault(); });
 
   window.addEventListener('hashchange', function () { var h = location.hash.slice(1); if (h) go(h); });
 
