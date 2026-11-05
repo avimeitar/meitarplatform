@@ -49,8 +49,11 @@ export function Overlays({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!drawer) return;
-    const first = drawerRef.current?.querySelector<HTMLElement>("input:not([type=hidden]), select, textarea, button:not(.ib)");
-    first?.focus();
+    // a new step starts at the top
+    drawerRef.current?.querySelector(".drawer-form")?.scrollTo(0, 0);
+    // focus the first field; when there is none, the sheet itself, so Enter never confirms something by accident
+    const first = drawerRef.current?.querySelector<HTMLElement>("input:not([type=hidden]), select, textarea");
+    (first ?? drawerRef.current)?.focus();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -74,7 +77,7 @@ export function Overlays({ children }: { children: ReactNode }) {
         {drawer && (
           <>
             <div className="scrim" onClick={close} />
-            <aside ref={drawerRef} className={"drawer" + (drawer.sheet ? " sheet" : "")} role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+            <aside ref={drawerRef} tabIndex={-1} className={"drawer" + (drawer.sheet ? " sheet" : "")} role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
               <header>
                 <h2 id="drawerTitle">{drawer.title}</h2>
                 <button type="button" className="ib" onClick={close} aria-label="סגירה">
