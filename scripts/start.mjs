@@ -2,6 +2,13 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 
+// Railway passes variables in the environment; locally they may be in .env
+try {
+  if (existsSync(".env")) process.loadEnvFile(".env");
+} catch {
+  // ignore a malformed .env: the server reports what is missing
+}
+
 const bin = (name) => (existsSync(`node_modules/.bin/${name}`) ? `node_modules/.bin/${name}` : name);
 
 if (process.env.DATABASE_URL) {
