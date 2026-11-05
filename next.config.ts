@@ -11,6 +11,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   serverExternalPackages: ["pg", "@prisma/adapter-pg"],
+  // the Fireberry import sends the whole file to the server
+  experimental: { serverActions: { bodySizeLimit: "15mb" } },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

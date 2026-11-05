@@ -57,6 +57,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   "role.delete": "מחיקת תפקיד",
   "lead.delete": "מחיקת ליד",
   "lead.export": "ייצוא לידים",
+  "lead.import": "ייבוא לידים מקובץ",
   "lead.bulk_assign": "העברת כמה לידים",
   "apikey.create": "יצירת מפתח לקליטת לידים",
   "apikey.revoke": "ביטול מפתח לקליטת לידים",

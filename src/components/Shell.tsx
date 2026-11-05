@@ -41,6 +41,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/users", label: "משתמשים", icon: "users", need: ["users.manage"] },
       { href: "/roles", label: "הרשאות", icon: "shield", need: ["roles.manage"] },
       { href: "/intake", label: "קליטת לידים", icon: "link", need: ["settings.manage"] },
+      { href: "/import", label: "ייבוא מפיירברי", icon: "upload", need: ["leads.import"] },
       { href: "/audit", label: "יומן פעולות", icon: "list", need: ["audit.view"] },
     ],
   },
