@@ -1333,7 +1333,7 @@ function agendaHtml(list) {
     var dl = list.filter(function (m) { return sameDay(m.start, d); });
     if (!dl.length) return;
     var conf = dl.filter(function (m) { return m.confirmed || m.status === 'held'; }).length;
-    out += '<div class="day-h">' + dayLabel(d) + ', ' + WD[d.getDay()] + ' ' + fD(d) + '<small>' + nOf(dl.length, 'פגישה אחת', 'פגישות') + ', אישרו או התקיימו: ' + conf + '</small></div><ul class="agenda">' + dl.map(function (m) {
+    var dlb = dayLabel(d); out += '<div class="day-h">' + (dlb.indexOf(' ') < 0 ? dlb + ', ' + WD[d.getDay()] + ' ' + fD(d) : dlb) + '<small>' + nOf(dl.length, 'פגישה אחת', 'פגישות') + ', אישרו או התקיימו: ' + conf + '</small></div><ul class="agenda">' + dl.map(function (m) {
       var l = L(m.lead);
       var cf = m.status === 'held' ? msPill('held') : '<span class="cf-ic' + (m.confirmed ? ' on' : '') + '" data-tip="' + (m.confirmed ? 'אישר הגעה' : 'טרם אישר הגעה') + '">' + ic('i-cc') + '</span>';
       return '<li><time>' + fT(m.start) + '</time>' + leadLink(l, esc(P(m.proj).name) + ', ' + esc(m.place)) + cf + av(U(m.host), 1) + '</li>';
