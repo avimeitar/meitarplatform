@@ -1,0 +1,98 @@
+/* Manager reports: projects (/projects) and closed deals (/deals).
+   Builds on the prototype classes already in globals.css: panel, kpis, vchart, srow, pcard, pstats, ibar, mini, data.
+   A page's global CSS stays loaded after navigating away, so every rule here is scoped to .reports
+   (or to .rp-form, the project form in the drawer). */
+
+/* while a filter loads, the numbers under it fade a little */
+.reports .rp-body{transition:opacity .15s}
+.reports:has(.toolbar[data-pending]) .rp-body{opacity:.55}
+
+/* a person who left or was deactivated */
+.reports .rp-off{margin-inline-start:2px;padding:0 7px;border-radius:999px;background:#EDF0F4;color:var(--ink-2);font-size:var(--fs-1);font-weight:500;line-height:20px;white-space:nowrap}
+/* lead names are links here, styled like the prototype's lead buttons */
+.reports a.lk{color:inherit;text-decoration:none}
+
+/* ---------- projects ---------- */
+.reports a.srow-name{text-decoration:none}
+.reports a.srow-name:hover{text-decoration:underline}
+.reports .srow-name.on{color:var(--blue-ink);text-decoration:underline}
+.reports .sbar i{min-width:4px}
+.reports .rp-note{margin:16px 2px 0;font-size:var(--fs-1);color:var(--ink-3)}
+.reports .pcards{margin-top:8px}
+.reports a.pcard{color:inherit;text-decoration:none}
+.reports a.pcard:hover h3{text-decoration:underline}
+.reports .pcard .pfoot .link{color:var(--blue-ink)}
+
+.reports .rp-detail{margin-top:24px;scroll-margin-top:84px}
+.reports .rp-detail-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.reports .rp-detail-head h2{font-size:var(--fs-4)}
+.reports .rp-detail-head p{margin-top:2px}
+.reports .rp-detail .panel-head h3{font-size:var(--fs-3)}
+.reports .rp-detail .grid-2{margin-top:0}
+.reports .rp-status{margin-top:16px}
+.reports .rp-scroll{overflow-x:auto}
+.reports .rp-break th{white-space:normal;vertical-align:bottom;line-height:1.3}
+.reports .rp-break td.num{font-weight:500}
+.reports .rp-st{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:28px}
+.reports .rp-st li{display:grid;grid-template-columns:9em minmax(0,1fr);align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-soft)}
+.reports .rp-st .st-pill{justify-self:start}
+.reports .rp-st .ibar{min-width:0}
+.reports .rp-plist-note{margin-bottom:6px;font-size:var(--fs-1)}
+.reports .rp-plist{list-style:none;margin:0;padding:0}
+.reports .rp-plist li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line-soft)}
+.reports .rp-plist li:first-child{border-top:0}
+.reports .rp-plist b{display:block}
+.reports .rp-plist small{display:block;font-size:var(--fs-1);color:var(--ink-3)}
+
+/* ---------- closed deals ---------- */
+.reports .rp-first{margin-top:0}
+.reports .rp-list{margin-top:16px;scroll-margin-top:84px}
+.reports .rp-bars td:first-child{white-space:normal}
+.reports .rp-bars .owner{white-space:normal}
+.reports .rp-mon-s,.reports .rp-m{display:none}
+.reports .more-row{align-items:center;gap:12px;flex-wrap:wrap}
+
+@media (max-width:1280px){
+  .reports .rp-detail .grid-2{grid-template-columns:minmax(0,1fr)}
+  .reports .rp-st{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+/* ---------- phones ---------- */
+@media (max-width:760px){
+  /* the project form opens in the drawer, outside .reports */
+  .rp-form .fld input{height:44px}
+  .reports .toolbar .sel{flex:1 1 100%}
+  .reports .toolbar .sel select{width:100%}
+  .reports .srow-name{display:flex;align-items:center;min-height:44px}
+  .reports .rp-st{grid-template-columns:minmax(0,1fr)}
+  .reports .vchart,.reports .vx{gap:6px}
+  .reports .rp-mon{display:none}
+  .reports .rp-mon-s{display:inline}
+
+  /* breakdown tables: one block per row, each number with its label */
+  .reports .rp-break thead{display:none}
+  .reports .rp-break,.reports .rp-break tbody{display:block}
+  .reports .rp-break tr{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px 8px;padding:12px 0;border-bottom:1px solid var(--line-soft)}
+  .reports .rp-break tbody tr:last-child{border-bottom:0}
+  .reports .rp-break td{padding:0;border:0;white-space:normal}
+  .reports .rp-break td.rp-name{grid-column:1 / -1;font-weight:600}
+  /* label on top, number at the bottom, so the numbers line up even when a label takes two lines */
+  .reports .rp-break td[data-label]{display:flex;flex-direction:column;justify-content:space-between}
+  .reports .rp-break td[data-label]::before{content:attr(data-label);display:block;margin-bottom:2px;font-family:var(--font);font-size:var(--fs-1);font-weight:400;line-height:1.25;color:var(--ink-3)}
+
+  /* shorter bars, so names keep their room */
+  .reports .rp-bars{--ibar-w:84px}
+  .reports .rp-bars .ibar{min-width:0}
+
+  /* deals list: the name and the date, with project, agent and source under the name */
+  .reports .rp-deals thead{display:none}
+  .reports .rp-deals table,.reports .rp-deals tbody{display:block}
+  .reports .rp-deals tr{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:0 12px;padding:6px 16px;border-bottom:1px solid var(--line-soft)}
+  .reports .rp-deals tbody tr:last-child{border-bottom:0}
+  .reports .rp-deals td{padding:0;border:0;white-space:normal}
+  .reports .rp-deals .c-lead{grid-column:1;grid-row:1;min-width:0}
+  .reports .rp-deals .c-date{grid-column:2;grid-row:1;color:var(--ink-2)}
+  .reports .rp-deals .c-proj,.reports .rp-deals .c-owner,.reports .rp-deals .c-src{display:none}
+  .reports .rp-deals .rp-m{display:block}
+  .reports .rp-deals td.empty{grid-column:1 / -1;padding:12px 0}
+}
