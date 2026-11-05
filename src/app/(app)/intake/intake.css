@@ -1,0 +1,61 @@
+/* Lead intake settings (/intake). Everything is prefixed with ik- because global CSS stays loaded after navigating away. */
+.ik-inline,.ik-code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;direction:ltr;unicode-bidi:isolate}
+.ik-inline{display:inline-block;padding:0 6px;border-radius:6px;background:#EEF2F8;color:var(--navy);font-size:var(--fs-1);line-height:1.7;white-space:nowrap}
+.ik-code{display:block;margin:0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#FAFBFD;color:var(--ink);font-size:var(--fs-1);line-height:1.55;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere}
+pre.ik-code{max-height:260px;overflow:auto}
+.ik-secret{border-color:var(--blue-100);background:var(--blue-50);color:var(--navy);font-size:var(--fs-2);font-weight:500;word-break:break-all;user-select:all}
+.ik-block{display:flex;flex-direction:column;gap:8px}
+.ik-lbl{font-size:var(--fs-1);font-weight:500;color:var(--ink-2)}
+.ik-line{display:flex;align-items:center;gap:8px}
+.ik-line .ik-code{flex:1;min-width:0}
+
+/* keys */
+.ik-keys td.ik-name b{font-weight:600}
+.ik-keys .ik-act{text-align:end}
+.ik-keys tr.ik-off td{color:var(--ink-3)}
+.ik-keys td[data-label]::before{display:none}
+.ik-empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:32px 20px;text-align:center}
+.ik-empty .ph-ic{margin:0 auto 4px}
+.ik-empty p{max-width:520px;color:var(--ink-2)}
+.ik-empty .btn{margin-top:6px}
+
+/* technical details */
+.ik-tech{display:flex;flex-direction:column;gap:14px}
+.ik-tech h3{margin-top:4px;color:var(--navy)}
+.ik-fields-wrap{overflow-x:auto;border:1px solid var(--line-soft);border-radius:10px}
+.ik-fields td{white-space:normal;vertical-align:top}
+.ik-fields td:first-child{white-space:nowrap}
+.ik-fields td:nth-child(2){min-width:220px}
+.ik-codes{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.ik-codes .ik-inline{min-width:42px;margin-inline-end:8px;text-align:center}
+
+/* new key form: .fld small would otherwise turn the error grey */
+.fld small.ik-err{color:var(--red);font-weight:500}
+
+/* the new key, shown once */
+.ik-ready .warn-line{font-weight:500}
+.ik-ready small{font-size:var(--fs-1)}
+
+@media (max-width:760px){
+  .ik-keys thead{display:none}
+  .ik-keys,.ik-keys tbody,.ik-keys tr,.ik-keys td{display:block}
+  .ik-keys tr{padding:14px 16px;border-bottom:1px solid var(--line-soft)}
+  .ik-keys tbody tr:last-child{border-bottom:0}
+  .ik-keys td{padding:2px 0;border:0;white-space:normal}
+  .ik-keys td.ik-name{margin-bottom:4px;font-size:var(--fs-3)}
+  .ik-keys td[data-label]::before{display:inline;content:attr(data-label) ": ";color:var(--ink-3);font-size:var(--fs-1)}
+  .ik-keys td small{display:inline;margin-inline-start:6px}
+  .ik-keys td small::before{content:"· "}
+  .ik-form .fld input{height:44px}
+  .ik-keys .ik-act{padding-top:10px;text-align:start}
+  .ik-keys .ik-act .btn{width:100%}
+  .ik-line{flex-direction:column;align-items:stretch}
+  .ik-fields thead{display:none}
+  .ik-fields,.ik-fields tbody,.ik-fields tr,.ik-fields td{display:block}
+  .ik-fields tr{padding:10px 12px;border-bottom:1px solid var(--line-soft)}
+  .ik-fields tbody tr:last-child{border-bottom:0}
+  .ik-fields td{padding:2px 0;border:0}
+  .ik-fields td:nth-child(2){min-width:0}
+  .ik-fields td:last-child{color:var(--ink-3);font-size:var(--fs-1)}
+  .ik-codes li{display:flex;align-items:baseline}
+}
