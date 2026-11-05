@@ -184,6 +184,9 @@ function ProjectDetail({ p, breakdown, manage }: { p: ProjectSummary; breakdown:
           </p>
         </div>
         <div className="head-actions">
+          <Link className="btn" href={`/leads?view=all&project=${encodeURIComponent(p.id)}`}>
+            ללידים של הפרויקט
+          </Link>
           {manage && <EditProjectButton project={{ id: p.id, name: p.name, fullName: p.fullName, place: p.place }} />}
           <Link className="btn ghost" href="/projects" scroll={false}>
             סגירה
