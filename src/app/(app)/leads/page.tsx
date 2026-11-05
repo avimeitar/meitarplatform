@@ -88,6 +88,14 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         <h1>
           לידים <span className="count-lg">{total}</span>
         </h1>
+        {can(u, "leads.export") && (
+          <div className="head-actions">
+            <a className="btn ghost" href={`/api/export/leads?${new URLSearchParams(Object.entries({ project: sp.project, source: sp.source, status: sp.status, owner: sp.owner }).filter(([, v]) => v) as [string, string][])}`}>
+              <Icon name="upload" />
+              ייצוא לאקסל
+            </a>
+          </div>
+        )}
       </div>
       {!q && (
         <div className={"views" + (manager ? "" : " wrap")} role="group" aria-label="תצוגות">
