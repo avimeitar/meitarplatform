@@ -10,6 +10,8 @@ export const metadata: Metadata = {
   title: { default: "מיתר", template: "%s · מיתר" },
   description: "מערכת הלידים והשיווק של קבוצת מיתר",
   icons: { icon: "/brand/mark-blue-512.png", apple: "/brand/mark-blue-512.png" },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "מיתר", statusBarStyle: "default" },
   robots: { index: false, follow: false },
 };
 

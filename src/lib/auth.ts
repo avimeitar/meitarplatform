@@ -19,8 +19,10 @@ export function appBaseURL(): string {
 type HeadersLike = { get(name: string): string | null } | undefined;
 
 function clientIp(h: HeadersLike): string | null {
+  // the last address is the one added by Railway's proxy; earlier ones can be typed by anyone
   const fwd = h?.get("x-forwarded-for");
-  return (fwd ? fwd.split(",")[0].trim() : h?.get("x-real-ip")) || null;
+  const list = fwd ? fwd.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  return list[list.length - 1] || h?.get("x-real-ip") || null;
 }
 
 async function otpSentLastHour(userId: string): Promise<number> {

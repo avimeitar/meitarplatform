@@ -68,6 +68,8 @@ export async function requireActionUser(perm?: Permission): Promise<CurrentUser>
 
 export async function requestIp(): Promise<string | null> {
   const h = await headers();
+  // the last address is the one added by Railway's proxy; earlier ones can be typed by anyone
   const fwd = h.get("x-forwarded-for");
-  return (fwd ? fwd.split(",")[0].trim() : h.get("x-real-ip")) || null;
+  const list = fwd ? fwd.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  return list[list.length - 1] || h.get("x-real-ip") || null;
 }

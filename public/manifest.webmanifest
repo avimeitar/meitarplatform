@@ -1,0 +1,15 @@
+{
+  "name": "מיתר CRM",
+  "short_name": "מיתר",
+  "description": "מערכת הלידים של קבוצת מיתר",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F4F6FA",
+  "theme_color": "#003278",
+  "icons": [
+    { "src": "/brand/mark-blue-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
