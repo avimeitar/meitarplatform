@@ -1,0 +1,319 @@
+// Meitar platform database.
+// Auth tables (user, session, account, verification, twoFactor, rateLimit) follow Better Auth's schema.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------- auth
+
+model User {
+  id                  String    @id
+  name                String
+  email               String    @unique
+  emailVerified       Boolean   @default(false)
+  image               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  phoneNumber         String?   @unique
+  phoneNumberVerified Boolean?  @default(false)
+  // every account signs in with a second step (code by SMS or WhatsApp)
+  twoFactorEnabled    Boolean?  @default(true)
+
+  roleId      String
+  role        Role      @relation(fields: [roleId], references: [id])
+  active      Boolean   @default(true)
+  deletedAt   DateTime?
+  otpChannel  String    @default("sms")
+  lastLoginAt DateTime?
+  createdById String?
+  // receives new leads in the automatic distribution
+  autoAssign  Boolean   @default(false)
+
+  sessions      Session[]
+  accounts      Account[]
+  twoFactors    TwoFactor[]
+  invites       Invite[]   @relation("InviteUser")
+  ownedLeads    Lead[]     @relation("LeadOwner")
+  tasks         Task[]     @relation("TaskUser")
+  activities    Activity[] @relation("ActivityUser")
+  meetingsSet   Meeting[]  @relation("MeetingSetBy")
+  meetingsHosted Meeting[] @relation("MeetingHost")
+
+  @@index([roleId])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model TwoFactor {
+  id                      String    @id
+  secret                  String
+  backupCodes             String
+  userId                  String
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verified                Boolean?  @default(true)
+  failedVerificationCount Int?      @default(0)
+  lockedUntil             DateTime?
+
+  @@index([secret])
+  @@index([userId])
+  @@map("twoFactor")
+}
+
+model RateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+
+  @@map("rateLimit")
+}
+
+// ---------------------------------------------------------------- permissions
+
+model Role {
+  id          String   @id @default(cuid())
+  key         String?  @unique // admin | manager | agent for the built-in roles
+  name        String   @unique
+  description String?
+  permissions String[]
+  locked      Boolean  @default(false) // the admin role always has every permission
+  builtIn     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]
+}
+
+model Invite {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation("InviteUser", fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String    @unique
+  purpose     String    @default("invite") // invite | reset
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdById String?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  actorId    String?
+  actorName  String?
+  action     String
+  targetType String?
+  targetId   String?
+  targetName String?
+  meta       Json?
+  ip         String?
+
+  @@index([createdAt])
+  @@index([actorId])
+  @@index([action])
+}
+
+// ---------------------------------------------------------------- CRM
+
+model Project {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  fullName  String
+  place     String
+  active    Boolean   @default(true)
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  leads     Lead[]
+  meetings  Meeting[]
+  inquiries Inquiry[]
+}
+
+model Lead {
+  id             String    @id @default(cuid())
+  name           String
+  phone          String    @unique // E.164, used to find duplicates
+  email          String?
+  source         String
+  projectId      String?
+  project        Project?  @relation(fields: [projectId], references: [id])
+  status         String    @default("new")
+  lostReason     String?
+  ownerId        String?
+  owner          User?     @relation("LeadOwner", fields: [ownerId], references: [id])
+  attempts       Int       @default(0)
+  nextAt         DateTime?
+  closedAt       DateTime?
+  consent        Boolean   @default(false)
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastActivityAt DateTime  @default(now())
+
+  activities Activity[]
+  meetings   Meeting[]
+  tasks      Task[]
+  inquiries  Inquiry[]
+
+  @@index([status])
+  @@index([ownerId])
+  @@index([createdAt])
+  @@index([nextAt])
+  @@index([projectId])
+}
+
+model Inquiry {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  source    String
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id])
+  campaign  String?
+  page      String?
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  kind      String // in | call | miss | wa | status | meeting | note | task | system
+  direction String? // in | out
+  text      String
+  file      String?
+  auto      String?
+  tags      String[]
+  userId    String?
+  user      User?    @relation("ActivityUser", fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([leadId, createdAt])
+}
+
+model Meeting {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id])
+  startAt   DateTime
+  place     String
+  status    String   @default("set") // set | cancel | held
+  confirmed Boolean  @default(false)
+  setById   String?
+  setBy     User?    @relation("MeetingSetBy", fields: [setById], references: [id])
+  hostId    String?
+  host      User?    @relation("MeetingHost", fields: [hostId], references: [id])
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([startAt])
+  @@index([leadId])
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  leadId      String?
+  lead        Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation("TaskUser", fields: [userId], references: [id])
+  title       String
+  dueAt       DateTime
+  done        Boolean   @default(false)
+  doneAt      DateTime?
+  auto        String? // retry | callback | resched
+  voided      Boolean   @default(false)
+  createdById String?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, done, dueAt])
+  @@index([leadId])
+}
+
+// server-side undo: what an action created and what it changed
+model ActionLog {
+  id        String    @id @default(cuid())
+  userId    String
+  label     String
+  ops       Json
+  createdAt DateTime  @default(now())
+  undoneAt  DateTime?
+
+  @@index([userId, createdAt])
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  prefix      String    @unique
+  hash        String
+  source      String
+  projectId   String?
+  active      Boolean   @default(true)
+  createdById String?
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
