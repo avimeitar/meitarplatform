@@ -1,0 +1,113 @@
+import Link from "next/link";
+import type { Prisma } from "@/generated/prisma/client";
+import { addDays, dayLabel, nextWorkday, sod, weekStart } from "@/lib/crm/dates";
+import { prisma } from "@/lib/db";
+import { can, requirePageUser } from "@/lib/session";
+import { MeetingsList, NewMeetingButton, type MeetingRowData } from "./MeetingsList";
+
+export const metadata = { title: "פגישות" };
+
+export default async function MeetingsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const u = await requirePageUser();
+  const sp = await searchParams;
+  const manager = can(u, "reports.view");
+  const now = new Date();
+  const today = sod(now);
+  const next = nextWorkday(now);
+  const RANGES: [string, string, Prisma.MeetingWhereInput][] = [
+    ["today", "היום", { startAt: { gte: today, lt: addDays(today, 1) } }],
+    ["next", dayLabel(next, now), { startAt: { gte: next, lt: addDays(next, 1) } }],
+    ...(manager ? ([["week", "השבוע", { startAt: { gte: weekStart(now), lt: addDays(weekStart(now), 7) } }]] as [string, string, Prisma.MeetingWhereInput][]) : []),
+    ["upcoming", "כל הקרובות", { startAt: { gte: now } }],
+    ...(manager ? ([["past", "עבר", { startAt: { lt: now } }]] as [string, string, Prisma.MeetingWhereInput][]) : []),
+    ["stale", "לעדכן", { startAt: { lt: now }, status: "set" }],
+  ];
+  const range = RANGES.find((r) => r[0] === sp.range) ?? RANGES.find((r) => r[0] === "upcoming")!;
+  const who = sp.who === "all" || (manager && sp.who !== "mine") ? "all" : "mine";
+  const mineWhere: Prisma.MeetingWhereInput = { OR: [{ setById: u.id }, { hostId: u.id }, { lead: { ownerId: u.id } }] };
+  const scope: Prisma.MeetingWhereInput = can(u, "leads.view_all") ? {} : mineWhere;
+  const where: Prisma.MeetingWhereInput = { AND: [scope, range[2], who === "mine" ? mineWhere : {}, sp.status ? { status: sp.status } : {}] };
+  const asc = range[0] !== "past";
+  const rows = await prisma.meeting.findMany({
+    where,
+    orderBy: { startAt: asc ? "asc" : "desc" },
+    take: 200,
+    include: { lead: { select: { id: true, name: true, phone: true, ownerId: true } }, project: { select: { name: true } }, setBy: { select: { name: true } }, host: { select: { name: true } } },
+  });
+  let kpis: { upcoming: number; held: number; cancel: number } | null = null;
+  if (manager) {
+    const since = addDays(today, -29);
+    const [up, held, cancel] = await Promise.all([
+      prisma.meeting.count({ where: { status: "set", startAt: { gte: now } } }),
+      prisma.meeting.count({ where: { status: "held", startAt: { gte: since, lt: addDays(today, 1) } } }),
+      prisma.meeting.count({ where: { status: "cancel", startAt: { gte: since, lt: addDays(today, 1) } } }),
+    ]);
+    kpis = { upcoming: up, held, cancel };
+  }
+  const data: MeetingRowData[] = rows.map((m) => ({
+    id: m.id,
+    leadId: m.leadId,
+    leadName: m.lead.name,
+    phoneRaw: m.lead.phone,
+    projectName: m.project?.name ?? "",
+    startAt: m.startAt.toISOString(),
+    place: m.place,
+    status: m.status,
+    confirmed: m.confirmed,
+    setByName: m.setBy?.name ?? null,
+    hostName: m.host?.name ?? null,
+    canEdit: can(u, "leads.edit") && (m.setById === u.id || m.hostId === u.id || m.lead.ownerId === u.id || can(u, "meetings.manage_all")),
+  }));
+  const href = (extra: Record<string, string>) => `/meetings?${new URLSearchParams({ range: range[0], who, ...extra })}`;
+  return (
+    <section>
+      <div className="page-head">
+        <div>
+          <h1>פגישות</h1>
+          <p className="sub">אחרי כל פגישה מסמנים מה קרה: התקיימה או בוטלה. הליד מתעדכן לבד.</p>
+        </div>
+        <div className="head-actions">{can(u, "leads.edit") && <NewMeetingButton />}</div>
+      </div>
+      {kpis && (
+        <div className="kpis">
+          <div className="kpi">
+            <span>תואמו קדימה</span>
+            <b>{kpis.upcoming}</b>
+          </div>
+          <div className="kpi">
+            <span>התקיימו ב-30 יום</span>
+            <b>{kpis.held}</b>
+          </div>
+          <div className="kpi">
+            <span>בוטלו ב-30 יום</span>
+            <b>{kpis.cancel}</b>
+          </div>
+          <div className="kpi">
+            <span>כמה מהפגישות התקיימו</span>
+            <b>{kpis.held + kpis.cancel ? Math.round((kpis.held / (kpis.held + kpis.cancel)) * 100) + "%" : "0%"}</b>
+          </div>
+        </div>
+      )}
+      <div className="toolbar">
+        <div className="seg" role="group" aria-label="מתי">
+          {RANGES.map(([k, label]) => (
+            <Link key={k} className={k === range[0] ? "on" : ""} href={href({ range: k })}>
+              {label}
+            </Link>
+          ))}
+        </div>
+        {can(u, "leads.view_all") && (
+          <div className="seg" role="group" aria-label="של מי">
+            <Link className={who === "mine" ? "on" : ""} href={href({ who: "mine" })}>
+              שלי
+            </Link>
+            <Link className={who === "all" ? "on" : ""} href={href({ who: "all" })}>
+              כל הצוות
+            </Link>
+          </div>
+        )}
+      </div>
+      <MeetingsList rows={data} />
+    </section>
+  );
+}

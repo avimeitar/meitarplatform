@@ -10,3 +10,4 @@ src/generated/
 test-results/
 .DS_Store
 tsconfig.tsbuildinfo
+.claude/worktrees/

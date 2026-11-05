@@ -2,12 +2,16 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { signOutAction } from "@/app/actions/auth";
 import { Icon, type IconName } from "@/components/Icon";
 import { useDrawer, Overlays } from "@/components/ui/Overlays";
 import { NewLeadForm, type PersonOption, type ProjectOption } from "@/components/leads/NewLeadForm";
 import type { Permission } from "@/lib/permissions";
+
+// Opens the "new lead" form from anywhere (for example from an empty search, with the number filled in).
+const NewLeadCtx = createContext<(prefill?: string) => void>(() => {});
+export const useNewLead = () => useContext(NewLeadCtx);
 
 export type ShellUser = { id: string; name: string; firstName: string; roleName: string; permissions: Permission[] };
 export type NavCounts = Partial<Record<"work" | "leads" | "meetings" | "tasks", number>>;
@@ -63,8 +67,8 @@ function ShellInner({ user, counts, projects, people, children }: { user: ShellU
 
   const active = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
-  function openNewLead() {
-    drawer.open({ title: "ליד חדש", content: <NewLeadForm projects={projects} people={people} canAssign={has("leads.assign")} me={user} /> });
+  function openNewLead(prefill?: string) {
+    drawer.open({ title: "ליד חדש", content: <NewLeadForm projects={projects} people={people} canAssign={has("leads.assign")} me={user} prefill={prefill} /> });
   }
 
   async function signOut() {
@@ -73,6 +77,7 @@ function ShellInner({ user, counts, projects, people, children }: { user: ShellU
   }
 
   return (
+    <NewLeadCtx.Provider value={openNewLead}>
     <div className="app">
       <aside className={"side" + (menuOpen ? " open" : "")} aria-label="תפריט">
         <div className="brand">
@@ -144,7 +149,7 @@ function ShellInner({ user, counts, projects, people, children }: { user: ShellU
           <input type="search" placeholder="חיפוש לפי שם או טלפון" aria-label="חיפוש לידים" value={q} onChange={(e) => setQ(e.target.value)} />
         </form>
         {has("leads.create") && (
-          <button type="button" className="btn primary new-lead" onClick={openNewLead}>
+          <button type="button" className="btn primary new-lead" onClick={() => openNewLead()}>
             <Icon name="plus" />
             ליד חדש
           </button>
@@ -173,6 +178,7 @@ function ShellInner({ user, counts, projects, people, children }: { user: ShellU
         </button>
       </nav>
     </div>
+    </NewLeadCtx.Provider>
   );
 }
 

@@ -14,8 +14,8 @@ export const useToast = () => useContext(ToastCtx);
 // ---------- drawer / bottom sheet ----------
 
 type DrawerSpec = { title: string; content: ReactNode; sheet?: boolean };
-type DrawerApi = { open: (d: DrawerSpec) => void; close: () => void; isOpen: boolean };
-const DrawerCtx = createContext<DrawerApi>({ open: () => {}, close: () => {}, isOpen: false });
+type DrawerApi = { open: (d: DrawerSpec) => void; close: () => void; retitle: (t: string) => void; isOpen: boolean };
+const DrawerCtx = createContext<DrawerApi>({ open: () => {}, close: () => {}, retitle: () => {}, isOpen: false });
 export const useDrawer = () => useContext(DrawerCtx);
 
 export function Overlays({ children }: { children: ReactNode }) {
@@ -45,6 +45,8 @@ export function Overlays({ children }: { children: ReactNode }) {
     setDrawer(d);
   }, []);
 
+  const retitle = useCallback((t: string) => setDrawer((d) => (d ? { ...d, title: t } : d)), []);
+
   useEffect(() => {
     if (!drawer) return;
     const first = drawerRef.current?.querySelector<HTMLElement>("input:not([type=hidden]), select, textarea, button:not(.ib)");
@@ -67,7 +69,7 @@ export function Overlays({ children }: { children: ReactNode }) {
 
   return (
     <ToastCtx.Provider value={show}>
-      <DrawerCtx.Provider value={{ open, close, isOpen: !!drawer }}>
+      <DrawerCtx.Provider value={{ open, close, retitle, isOpen: !!drawer }}>
         {children}
         {drawer && (
           <>

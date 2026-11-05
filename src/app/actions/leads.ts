@@ -344,3 +344,41 @@ export async function taskDoneAction(taskId: string, done: boolean): Promise<Act
     return { message: (done ? "בוצע: " : "חזר לפתוחות: ") + t.title, undoId };
   });
 }
+
+export async function autoAssignAction(leadIds: string[]): Promise<ActionResult> {
+  return run(async () => {
+    const u = await requireActionUser("leads.assign");
+    const ids = [...new Set((leadIds ?? []).map(String))].slice(0, 200);
+    const { result, undoId } = await withUndo(u.id, "שיוך אוטומטי", async (tx, rec) => {
+      let n = 0;
+      for (const id of ids) {
+        const lead = await tx.lead.findUnique({ where: { id } });
+        if (!lead || lead.ownerId) continue;
+        const owner = await crm.pickAutoOwner(tx);
+        if (!owner) break;
+        await crm.assignLead(tx, rec, id, owner, by(u));
+        n++;
+      }
+      return n;
+    });
+    refresh();
+    if (!result) throw new ActionError("אין סוכנים בחלוקה האוטומטית. אפשר להוסיף אותם במסך המשתמשים.");
+    return { message: result === 1 ? "ליד אחד חולק אוטומטית" : `${result} לידים חולקו אוטומטית`, undoId };
+  });
+}
+
+/** For the "new meeting" sheet: find a lead by name or phone digits. */
+export async function searchLeadsAction(q: string): Promise<ActionResult<{ id: string; name: string; phone: string; projectName: string }[]>> {
+  return run(async () => {
+    const u = await requireActionUser();
+    const text = String(q ?? "").trim().slice(0, 60);
+    const digits = text.replace(/\D/g, "");
+    const scope = can(u, "leads.view_all") ? {} : { ownerId: u.id };
+    const where = text
+      ? { AND: [scope, { status: { notIn: ["won", "lost"] } }, { OR: [{ name: { contains: text, mode: "insensitive" as const } }, ...(digits.length >= 3 ? [{ phone: { contains: digits.replace(/^0/, "") } }] : [])] }] }
+      : { AND: [scope, { ownerId: u.id }, { status: { notIn: ["won", "lost"] } }] };
+    const rows = await prisma.lead.findMany({ where, orderBy: { lastActivityAt: "desc" }, take: 6, include: { project: { select: { name: true } } } });
+    const { formatPhone } = await import("@/lib/phone");
+    return { data: rows.map((l) => ({ id: l.id, name: l.name, phone: formatPhone(l.phone), projectName: l.project?.name ?? "" })) };
+  });
+}

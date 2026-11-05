@@ -23,10 +23,28 @@ export function at(d: Date, h: number, m = 0): Date {
   x.setHours(h, m, 0, 0);
   return x;
 }
-export const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-export const fT = (d: Date) => pad(d.getHours()) + ":" + pad(d.getMinutes());
-export const fD = (d: Date) => d.getDate() + "." + (d.getMonth() + 1);
-export const iso = (d: Date) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+// Israel wall-clock time, whatever time zone the device is set to (someone abroad sees the same hours).
+const IL = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Jerusalem", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric", hourCycle: "h23" });
+export function wall(d: Date): Date {
+  const p: Record<string, string> = {};
+  for (const part of IL.formatToParts(d)) p[part.type] = part.value;
+  return new Date(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second);
+}
+const local = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+export const sameDay = (a: Date, b: Date) => local(wall(a), wall(b));
+export const fT = (d: Date) => {
+  const x = wall(d);
+  return pad(x.getHours()) + ":" + pad(x.getMinutes());
+};
+export const fD = (d: Date) => {
+  const x = wall(d);
+  return x.getDate() + "." + (x.getMonth() + 1);
+};
+export const iso = (d: Date) => {
+  const x = wall(d);
+  return x.getFullYear() + "-" + pad(x.getMonth() + 1) + "-" + pad(x.getDate());
+};
+export const weekday = (d: Date) => WD[wall(d).getDay()];
 
 /** Friday and Saturday are not working days. */
 export const isWorkday = (d: Date) => d.getDay() !== 5 && d.getDay() !== 6;
@@ -47,27 +65,30 @@ export const weekStart = (now = new Date()) => addDays(sod(now), -sod(now).getDa
 export const monthStart = (now = new Date()) => new Date(now.getFullYear(), now.getMonth(), 1);
 
 export function dayLabel(d: Date, now = new Date()): string {
-  const today = sod(now);
-  if (sameDay(d, today)) return "היום";
-  if (sameDay(d, addDays(today, 1))) return "מחר";
-  if (sameDay(d, addDays(today, -1))) return "אתמול";
-  return WD[d.getDay()] + " " + fD(d);
+  const x = wall(d);
+  const today = sod(wall(now));
+  if (local(x, today)) return "היום";
+  if (local(x, addDays(today, 1))) return "מחר";
+  if (local(x, addDays(today, -1))) return "אתמול";
+  return WD[x.getDay()] + " " + fD(d);
 }
 
 /** "היום, חמישי 5.11" / "ראשון 8.11" */
 export function dayFull(d: Date, now = new Date()): string {
-  const today = sod(now);
-  const rel = sameDay(d, today) ? "היום, " : sameDay(d, addDays(today, 1)) ? "מחר, " : "";
-  return rel + WD[d.getDay()] + " " + fD(d);
+  const x = wall(d);
+  const today = sod(wall(now));
+  const rel = local(x, today) ? "היום, " : local(x, addDays(today, 1)) ? "מחר, " : "";
+  return rel + WD[x.getDay()] + " " + fD(d);
 }
 
 export function relTime(d: Date, now = new Date()): string {
   const diff = now.getTime() - d.getTime();
   if (diff >= 0 && diff < HOUR) return "לפני " + Math.max(1, Math.round(diff / MIN)) + " דק׳";
-  const today = sod(now);
-  if (sameDay(d, today)) return "היום " + fT(d);
-  if (sameDay(d, addDays(today, -1))) return "אתמול " + fT(d);
-  const days = Math.round((today.getTime() - sod(d).getTime()) / DAY);
+  const today = sod(wall(now));
+  const x = wall(d);
+  if (local(x, today)) return "היום " + fT(d);
+  if (local(x, addDays(today, -1))) return "אתמול " + fT(d);
+  const days = Math.round((today.getTime() - sod(x).getTime()) / DAY);
   if (days === 2) return "לפני יומיים";
   if (days > 2 && days < 7) return "לפני " + days + " ימים";
   return fD(d) + "." + String(d.getFullYear()).slice(2);

@@ -15,7 +15,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "typecheck": "tsc --noEmit",
     "test": "TZ=Asia/Jerusalem vitest run",
-    "e2e": "TZ=Asia/Jerusalem node tests/e2e/run.mjs"
+    "e2e": "node tests/e2e/run.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.1",
