@@ -3,9 +3,8 @@ import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-// Railway's health check. Answers 200 even before the database is connected, so the setup page can say what is missing.
+// Railway's health check. Answers 200 even before the database is connected; it says no more than whether the site is set up.
 export async function GET() {
-  const cfg = authConfigured();
   let db = "missing";
   if (process.env.DATABASE_URL) {
     try {
@@ -15,5 +14,5 @@ export async function GET() {
       db = "error";
     }
   }
-  return Response.json({ ok: true, db, configured: cfg.ok, missing: cfg.missing });
+  return Response.json({ ok: true, db, configured: authConfigured().ok });
 }

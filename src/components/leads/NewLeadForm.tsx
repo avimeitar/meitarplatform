@@ -37,7 +37,7 @@ export function NewLeadForm({ projects, people, canAssign, me, prefill }: { proj
     if (!r.ok) return setErr({ field: r.field, text: r.error });
     drawer.close();
     toast(r.message ?? "הליד נשמר", { undoId: r.undoId });
-    if (r.data) router.push(`/leads/${r.data.leadId}`);
+    if (r.data?.leadId) router.push(`/leads/${r.data.leadId}`);
   }
 
   const fieldErr = (f: string) =>
@@ -103,7 +103,7 @@ export function NewLeadForm({ projects, people, canAssign, me, prefill }: { proj
       </label>
       <label className="check">
         <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-        הלקוח אישר לקבל מידע שיווקי
+        יש אישור לקבל מידע שיווקי
       </label>
       {err && !["name", "phone", "email", "projectId", "owner"].includes(err.field ?? "") && (
         <p className="form-error" role="alert">

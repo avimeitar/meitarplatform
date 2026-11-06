@@ -83,9 +83,9 @@ export function WorkScreen({ rows }: { rows: QueueRow[] }) {
       </div>
       <div className="wcard">
         <span className={"why" + (current.meetingId ? " meet" : current.late ? " late" : "")}>{current.why}</span>
-        <p className="wname">{current.name}</p>
+        <h1 className="wname">{current.name}</h1>
         <p className="wmeta">
-          {[current.projectName, current.source ? `הגיע מ${current.source}` : ""].filter(Boolean).join(". ")} <StatusPill status={current.status} />
+          {[current.projectName, current.source ? `מקור: ${current.source}` : ""].filter(Boolean).join(". ")} <StatusPill status={current.status} />
         </p>
         <a className="wphone ltr" href={`tel:${current.phoneRaw}`}>
           {current.phone}

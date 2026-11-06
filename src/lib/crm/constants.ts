@@ -18,7 +18,7 @@ export const OPEN_STATUSES: LeadStatus[] = ["new", "process", "noans", "meet", "
 export const isLeadStatus = (s: string): s is LeadStatus => Object.prototype.hasOwnProperty.call(ST, s);
 
 export const MS = {
-  set: { l: "תואמה", c: "m-set", icon: "cal" },
+  set: { l: "נקבעה", c: "m-set", icon: "cal" },
   cancel: { l: "בוטלה", c: "m-cancel", icon: "x" },
   held: { l: "התקיימה", c: "m-held", icon: "check" },
 } as const;
@@ -30,7 +30,7 @@ export function meetingClient(m: { lead?: { name: string } | null; clientName?: 
   return m.lead?.name ?? m.clientName ?? "ללא שם";
 }
 
-export const REASONS = ["מכחיש פנייה", "לא מעוניין", "אין תקציב", "מספר לא תקין", "רכש במקום אחר", "אחר"];
+export const REASONS = ["הכחשת פנייה", "אין עניין", "אין תקציב", "מספר לא תקין", "רכישה במקום אחר", "אחר"];
 
 export const PLACES = [
   { value: "משרד, פתח תקווה", label: "במשרד" },
@@ -39,6 +39,6 @@ export const PLACES = [
 ];
 
 /** Sources people can choose when adding a lead by hand. Leads from forms and campaigns bring their own. */
-export const MANUAL_SOURCES = ["שיחה נכנסת", "הגיע למשרד", "הפניה", "פייסבוק", "דף נחיתה", "גוגל", "וואטסאפ", "אתר החברה", "ספק לידים", "אחר"];
+export const MANUAL_SOURCES = ["שיחה נכנסת", "הגעה למשרד", "הפניה", "פייסבוק", "דף נחיתה", "גוגל", "וואטסאפ", "אתר החברה", "ספק לידים", "אחר"];
 
 export const OFFICE_ADDRESS = "המשרד שלנו נמצא בדרך רבין 1, פתח תקווה, מגדל גלובל טאוור, קומה 4.";

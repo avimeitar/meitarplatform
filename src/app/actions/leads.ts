@@ -9,6 +9,7 @@ import { LATER, laterDate, laterLabel, type LaterKey } from "@/lib/crm/dates";
 import * as crm from "@/lib/crm/service";
 import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/phone";
+import { leadScope } from "@/lib/crm/views";
 import { ActionError, can, requestIp, requireActionUser, type CurrentUser } from "@/lib/session";
 import { withUndo } from "@/lib/undo";
 
@@ -79,10 +80,14 @@ export async function createLeadAction(input: z.input<typeof newLeadSchema>): Pr
       crm.createOrMergeLead(tx, rec, { name: data.name, phone, email: data.email || null, source, projectId: project.id, owner, consent: data.consent }, by(u)),
     );
     refresh();
-    const message = result.duplicate
-      ? `הטלפון כבר קיים, ולכן הפנייה נוספה לכרטיס הקיים`
-      : `הליד ${data.name} נשמר` + (result.ownerName ? (result.ownerName === u.name ? " אצלך" : ` ושויך ל${result.ownerName}`) : "");
-    return { message, undoId: result.duplicate ? undefined : undoId, data: { leadId: result.leadId, duplicate: result.duplicate } };
+    // someone who sees only their own leads isn't shown another agent's lead
+    const hidden = result.duplicate && !can(u, "leads.view_all") && result.ownerId !== u.id;
+    const message = hidden
+      ? "הטלפון הזה כבר שייך לליד של סוכן אחר. הפנייה נוספה לכרטיס שלו"
+      : result.duplicate
+        ? `הטלפון כבר קיים, ולכן הפנייה נוספה לכרטיס הקיים`
+        : `הליד ${data.name} נשמר` + (result.ownerName ? (result.ownerName === u.name ? " אצלך" : ` ושויך ל${result.ownerName}`) : "");
+    return { message, undoId: result.duplicate ? undefined : undoId, data: { leadId: hidden ? "" : result.leadId, duplicate: result.duplicate } };
   });
 }
 
@@ -202,10 +207,10 @@ export async function assignLeadAction(leadId: string, ownerId: string | null): 
       if (!t) throw new ActionError("המשתמש שנבחר לא פעיל");
       target = t.id;
     }
-    const { undoId } = await withUndo(u.id, "העברת ליד", (tx, rec) => crm.assignLead(tx, rec, lead.id, target, by(u)));
+    const { undoId } = await withUndo(u.id, "שיוך ליד", (tx, rec) => crm.assignLead(tx, rec, lead.id, target, by(u)));
     refresh();
     const name = target ? (await prisma.user.findUnique({ where: { id: target }, select: { name: true } }))?.name : null;
-    return { message: name ? `הליד הועבר ל${name}` : "השיוך הוסר", undoId };
+    return { message: name ? `הליד שויך ל${name}` : "השיוך הוסר", undoId };
   });
 }
 
@@ -213,15 +218,23 @@ export async function bulkAssignAction(leadIds: string[], ownerId: string): Prom
   return run(async () => {
     const u = await requireActionUser("leads.assign");
     if (!can(u, "leads.bulk")) throw new ActionError("אין לך הרשאה לפעולות על כמה לידים");
-    const ids = [...new Set((leadIds ?? []).map(String))].slice(0, 500);
-    const t = await prisma.user.findFirst({ where: { id: ownerId, active: true, deletedAt: null } });
+    const asked = [...new Set((leadIds ?? []).map(String))].slice(0, 500);
+    const t = await prisma.user.findFirst({ where: { id: String(ownerId), active: true, deletedAt: null } });
     if (!t) throw new ActionError("המשתמש שנבחר לא פעיל");
-    const { undoId } = await withUndo(u.id, "העברת כמה לידים", async (tx, rec) => {
-      for (const id of ids) await crm.assignLead(tx, rec, id, t.id, by(u));
-    });
+    // only leads this person may see
+    const ids = (await prisma.lead.findMany({ where: { AND: [{ id: { in: asked } }, leadScope(u)] }, select: { id: true } })).map((l) => l.id);
+    if (!ids.length) throw new ActionError("לא נבחרו לידים");
+    const { undoId } = await withUndo(
+      u.id,
+      "שיוך כמה לידים",
+      async (tx, rec) => {
+        for (const id of ids) await crm.assignLead(tx, rec, id, t.id, by(u));
+      },
+      { timeout: 120_000 },
+    );
     await audit({ actorId: u.id, actorName: u.name, action: "lead.bulk_assign", targetName: t.name, meta: { count: ids.length }, ip: await requestIp() });
     refresh();
-    return { message: ids.length === 1 ? `הליד הועבר ל${t.name}` : `${ids.length} לידים הועברו ל${t.name}`, undoId };
+    return { message: ids.length === 1 ? `הליד שויך ל${t.name}` : `${ids.length} לידים שויכו ל${t.name}`, undoId };
   });
 }
 
@@ -343,6 +356,7 @@ export async function taskDoneAction(taskId: string, done: boolean): Promise<Act
     const t = await prisma.task.findUnique({ where: { id: String(taskId) } });
     if (!t) throw new ActionError("המשימה לא נמצאה");
     if (t.userId !== u.id && !can(u, "tasks.assign")) throw new ActionError("אפשר לסמן רק משימות שלך");
+    if (t.userId !== u.id && t.leadId) await leadFor(u, t.leadId);
     const { undoId } = await withUndo(u.id, done ? "סימון משימה כבוצעה" : "החזרת משימה", (tx, rec) => crm.setTaskDone(tx, rec, t.id, done, by(u)));
     refresh();
     return { message: (done ? "בוצע: " : "חזר לפתוחות: ") + t.title, undoId };
@@ -352,19 +366,25 @@ export async function taskDoneAction(taskId: string, done: boolean): Promise<Act
 export async function autoAssignAction(leadIds: string[]): Promise<ActionResult> {
   return run(async () => {
     const u = await requireActionUser("leads.assign");
-    const ids = [...new Set((leadIds ?? []).map(String))].slice(0, 200);
-    const { result, undoId } = await withUndo(u.id, "שיוך אוטומטי", async (tx, rec) => {
-      let n = 0;
-      for (const id of ids) {
-        const lead = await tx.lead.findUnique({ where: { id } });
-        if (!lead || lead.ownerId) continue;
-        const owner = await crm.pickAutoOwner(tx);
-        if (!owner) break;
-        await crm.assignLead(tx, rec, id, owner, by(u));
-        n++;
-      }
-      return n;
-    });
+    const asked = [...new Set((leadIds ?? []).map(String))].slice(0, 500);
+    const ids = (await prisma.lead.findMany({ where: { AND: [{ id: { in: asked }, ownerId: null }, leadScope(u)] }, select: { id: true } })).map((l) => l.id);
+    const { result, undoId } = await withUndo(
+      u.id,
+      "שיוך אוטומטי",
+      async (tx, rec) => {
+        // spread evenly: each lead goes to whoever has the fewest, counting the ones handed out here
+        const pick = await crm.autoOwnerPicker(tx);
+        let n = 0;
+        for (const id of ids) {
+          const owner = pick();
+          if (!owner) break;
+          await crm.assignLead(tx, rec, id, owner, by(u));
+          n++;
+        }
+        return n;
+      },
+      { timeout: 120_000 },
+    );
     refresh();
     if (!result) throw new ActionError("אין סוכנים בחלוקה האוטומטית. אפשר להוסיף אותם במסך המשתמשים.");
     return { message: result === 1 ? "ליד אחד חולק אוטומטית" : `${result} לידים חולקו אוטומטית`, undoId };

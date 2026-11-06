@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fireberryKind, guessMeetingProject, mapMeetingStatus, meetingKey, parseCsv, readFireberry, readFireberryMeetings } from "@/lib/fireberry";
+import { fireberryKind, guessMeetingProject, legacyMeetingKey, mapMeetingStatus, mapStatus, meetingKey, parseCsv, parseFbDate, readFireberry, readFireberryMeetings } from "@/lib/fireberry";
 
 // made-up rows in the shape of Fireberry's exports
 const MEETINGS = '﻿תאריך התחלה,נושא,משויך ל,סטטוס,שם נציג,מקור הגעה (משויך ל:לקוח)\r\n' + '06/11/2026 11:00,"מטרו פ""ת",ישראל ישראלי,-,נציגה א,טאבולה\r\n' + "02/11/2026 10:30,זום אתונה,-,בוטלה,נציג ב,-\r\n" + "לא תאריך,לימסול,דנה,התקימה,נציג ב,\r\n";
@@ -29,7 +29,7 @@ describe("reading Fireberry exports", () => {
     expect(r.rows[0]).toMatchObject({ name: "ישראל ישראלי", phone: "+972501234567", source: "פייסבוק - אתונה" });
   });
 
-  it("translates meeting statuses; unknown ones stay ״תואמה״", () => {
+  it("translates meeting statuses; unknown ones stay ״נקבעה״", () => {
     expect(mapMeetingStatus("התקימה")).toBe("held");
     expect(mapMeetingStatus("התקיימה")).toBe("held");
     expect(mapMeetingStatus("המשך טיפול לאחר פגישה")).toBe("held");
@@ -54,5 +54,36 @@ describe("reading Fireberry exports", () => {
     expect(guessMeetingProject("פתח תקווה", projects)).toBe("");
     expect(guessMeetingProject("לרנקה", projects)).toBe("");
     expect(guessMeetingProject("לימסול", projects)).toBe("p-לימסול");
+  });
+});
+
+describe("Fireberry dates and keys", () => {
+  it("reads day-first dates and refuses impossible or unknown ones", () => {
+    expect(parseFbDate("05/11/2026 14:30")?.getMonth()).toBe(10);
+    expect(parseFbDate("05-11-2026")?.getDate()).toBe(5);
+    expect(parseFbDate("05-11-2026")?.getMonth()).toBe(10);
+    expect(parseFbDate("2026-11-05")?.getDate()).toBe(5);
+    expect(parseFbDate("31/02/2026")).toBe(null);
+    expect(parseFbDate("Nov 5 2026")).toBe(null);
+    expect(parseFbDate("-")).toBe(null);
+  });
+
+  it("a dash in a leads export means empty", () => {
+    const r = readFireberry("שם לקוח,טלפון,סטטוס,אימייל\nישראל ישראלי,050-1234567,-,-\n");
+    expect(r.rows[0].status).toBe("");
+    expect(r.rows[0].email).toBe("");
+    expect(mapStatus(r.rows[0].status).status).toBe("new");
+  });
+
+  it("lost reasons from Fireberry come in neutral wording", () => {
+    expect(mapStatus("מכחיש פנייה")).toEqual({ status: "lost", reason: "הכחשת פנייה" });
+    expect(mapStatus("לא מעוניין")).toEqual({ status: "lost", reason: "אין עניין" });
+  });
+
+  it("two meetings with no client at the same time are told apart by the rep", () => {
+    const start = new Date(2026, 10, 6, 10, 0);
+    expect(meetingKey({ client: "", start, rep: "א", subject: "" })).not.toBe(meetingKey({ client: "", start, rep: "ב", subject: "" }));
+    // meetings with a client keep the key the first import gave them
+    expect(meetingKey({ client: "ישראל ישראלי", start, rep: "א" })).toBe(legacyMeetingKey({ client: "ישראל ישראלי", start }));
   });
 });

@@ -47,15 +47,18 @@ export class Recorder {
   }
 }
 
-/** Runs a change in one transaction and keeps what is needed to undo it. */
-export async function withUndo<T>(userId: string, label: string, fn: (tx: Tx, rec: Recorder) => Promise<T>): Promise<{ result: T; undoId: string | undefined }> {
-  return prisma.$transaction(async (tx) => {
-    const rec = new Recorder(tx);
-    const result = await fn(tx, rec);
-    if (!rec.ops.length) return { result, undoId: undefined };
-    const log = await tx.actionLog.create({ data: { userId, label, ops: rec.ops as never } });
-    return { result, undoId: log.id };
-  });
+/** Runs a change in one transaction and keeps what is needed to undo it. Bulk changes pass a longer timeout. */
+export async function withUndo<T>(userId: string, label: string, fn: (tx: Tx, rec: Recorder) => Promise<T>, opts: { timeout?: number } = {}): Promise<{ result: T; undoId: string | undefined }> {
+  return prisma.$transaction(
+    async (tx) => {
+      const rec = new Recorder(tx);
+      const result = await fn(tx, rec);
+      if (!rec.ops.length) return { result, undoId: undefined };
+      const log = await tx.actionLog.create({ data: { userId, label, ops: rec.ops as never } });
+      return { result, undoId: log.id };
+    },
+    { timeout: opts.timeout ?? 15_000, maxWait: 10_000 },
+  );
 }
 
 export async function undo(userId: string, id: string): Promise<{ ok: true; label: string } | { ok: false; error: string }> {
@@ -64,7 +67,10 @@ export async function undo(userId: string, id: string): Promise<{ ok: true; labe
   if (log.undoneAt) return { ok: false, error: "הפעולה כבר בוטלה" };
   if (Date.now() - log.createdAt.getTime() > UNDO_WINDOW_MS) return { ok: false, error: "עבר יותר מדי זמן כדי לבטל" };
   const ops = (log.ops as unknown as Op[]) ?? [];
-  await prisma.$transaction(async (tx) => {
+  const claimed = await prisma.$transaction(async (tx) => {
+    // claim the log first, so two taps on "ביטול" can't both run it
+    const claim = await tx.actionLog.updateMany({ where: { id, undoneAt: null }, data: { undoneAt: new Date() } });
+    if (!claim.count) return false;
     for (const op of [...ops].reverse()) {
       const d = delegate(tx, op.model);
       if (op.t === "create") await d.deleteMany({ where: { id: op.id } });
@@ -74,7 +80,8 @@ export async function undo(userId: string, id: string): Promise<{ ok: true; labe
         await d.update({ where: { id: op.id }, data }).catch(() => {});
       }
     }
-    await tx.actionLog.update({ where: { id }, data: { undoneAt: new Date() } });
-  });
+    return true;
+  }, { timeout: 30_000 });
+  if (!claimed) return { ok: false, error: "הפעולה כבר בוטלה" };
   return { ok: true, label: log.label };
 }

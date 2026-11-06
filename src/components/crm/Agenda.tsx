@@ -1,12 +1,18 @@
 import { Icon } from "@/components/Icon";
-import { dayFull, fT, nextWorkday, sameDay, sod } from "@/lib/crm/dates";
+import { dayFull, fT, sameDay, sod } from "@/lib/crm/dates";
 import type { AgendaItem } from "@/lib/crm/views";
 import { initials, LeadLink, MeetingPill, nOf } from "./bits";
 
 export function Agenda({ items }: { items: AgendaItem[] }) {
   const now = new Date();
-  const days = [sod(now), nextWorkday(now)];
   if (!items.length) return <p className="empty">אין פגישות היום וביום העבודה הבא.</p>;
+  // today, then every day up to the next working day that has meetings (on Thursday also Friday)
+  const days: Date[] = [];
+  for (const m of items) {
+    const d = sod(new Date(m.startAt));
+    if (!days.some((x) => sameDay(x, d))) days.push(d);
+  }
+  days.sort((a, b) => a.getTime() - b.getTime());
   return (
     <>
       {days.map((d) => {
@@ -18,7 +24,7 @@ export function Agenda({ items }: { items: AgendaItem[] }) {
             <div className="day-h">
               {dayFull(d, now)}
               <small>
-                {nOf(list.length, "פגישה אחת", "פגישות")}, אישרו או התקיימו: {ok}
+                {nOf(list.length, "פגישה אחת", "פגישות")}, אושרו או התקיימו: {ok}
               </small>
             </div>
             <ul className="agenda">

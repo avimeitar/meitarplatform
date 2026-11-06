@@ -35,12 +35,14 @@ const MESSAGES: Record<string, string> = {
   INVALID_TWO_FACTOR_COOKIE: "עבר יותר מדי זמן. צריך להתחיל את הכניסה מחדש.",
   PASSWORD_TOO_SHORT: "הסיסמה קצרה מדי. צריך לפחות 8 תווים.",
   PASSWORD_TOO_LONG: "הסיסמה ארוכה מדי",
+
   NETWORK: "אין חיבור לאינטרנט. אפשר לבדוק את החיבור ולנסות שוב.",
 };
 
 export function authErrorText(r: AuthResult<unknown>): string {
-  if (r.status === 429 && r.code !== "OTP_HOURLY_LIMIT") return "היו יותר מדי ניסיונות. אפשר לנסות שוב בעוד כמה דקות.";
-  if (r.code === "ACCOUNT_INACTIVE" || r.code === "OTP_HOURLY_LIMIT" || r.code === "SIGN_IN_LOCKED") return r.message || "אי אפשר להמשיך כרגע.";
+  const own = ["ACCOUNT_INACTIVE", "OTP_HOURLY_LIMIT", "SIGN_IN_LOCKED", "ACCOUNT_THROTTLED", "WEAK_PASSWORD"];
+  if (r.status === 429 && !own.includes(r.code ?? "")) return "היו יותר מדי ניסיונות. אפשר לנסות שוב בעוד כמה דקות.";
+  if (own.includes(r.code ?? "")) return r.message || "אי אפשר להמשיך כרגע.";
   if (r.code && MESSAGES[r.code]) return MESSAGES[r.code];
   if (r.status === 503) return "המערכת עוד לא הוגדרה. צריך לחבר מסד נתונים ומפתח אבטחה.";
   return "משהו השתבש. אפשר לנסות שוב.";

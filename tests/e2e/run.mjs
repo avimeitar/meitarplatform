@@ -84,10 +84,14 @@ try {
   ok("the link works only once", (await q.locator("h1").textContent()).includes("לא בתוקף"));
   await login(q, [newPhone, "agent-pass-5678"]);
   await q.goto(`${BASE}/users`);
+  // the loading screen streams first, so the redirect to "no access" lands a moment later
+  await q.waitForURL("**/denied**", { timeout: 10000 }).catch(() => {});
   ok("agents cannot open the users screen", q.url().includes("/denied"));
   await a.goto(`${BASE}/users`);
   await a.click('.ulist li:has-text("סוכן בדיקה") button:has-text("ניהול")');
   await a.click('.drawer button:has-text("להשבית את החשבון")');
+  // deactivating asks first
+  await a.click('.drawer button:has-text("כן, להשבית")');
   await a.waitForTimeout(1200);
   await q.goto(`${BASE}/dashboard`);
   ok("deactivating signs the person out at once", q.url().includes("/login"));

@@ -5,7 +5,7 @@ import { run, type ActionResult } from "@/lib/action";
 import { audit } from "@/lib/audit";
 import { MS, ST } from "@/lib/crm/constants";
 import { prisma } from "@/lib/db";
-import { fireberryKind, guessMeetingProject, guessProject, mapMeetingStatus, mapStatus, meetingKey, parseCsv, readFireberry, readFireberryMeetings, type FbMeeting, type FbRow } from "@/lib/fireberry";
+import { fireberryKind, guessMeetingProject, guessProject, leadRowKey, legacyMeetingKey, mapMeetingStatus, mapStatus, meetingKey, parseCsv, readFireberry, readFireberryMeetings, type FbMeeting, type FbRow } from "@/lib/fireberry";
 import { ActionError, requestIp, requireActionUser } from "@/lib/session";
 
 export type LeadsPreview = {
@@ -16,6 +16,8 @@ export type LeadsPreview = {
   badPhone: number;
   dupInFile: number;
   existing: number;
+  /** rows imported before (the same file or another export with the same rows): they are not added again */
+  already: number;
   sources: { source: string; count: number; projectId: string }[];
   owners: { name: string; count: number; userId: string }[];
   statuses: { from: string; count: number; to: string }[];
@@ -90,6 +92,9 @@ async function previewLeads(rows: FbRow[], files: number, projects: Ref[], users
   let existing = 0;
   for (let i = 0; i < phones.length; i += 1000) existing += await prisma.lead.count({ where: { phone: { in: phones.slice(i, i + 1000) } } });
   const withPhone = rows.filter((r) => r.phone);
+  const keys = [...new Set(withPhone.map(leadRowKey))];
+  let already = 0;
+  for (let i = 0; i < keys.length; i += 1000) already += await prisma.inquiry.count({ where: { externalId: { in: keys.slice(i, i + 1000) } } });
   return {
     kind: "leads",
     files,
@@ -98,6 +103,7 @@ async function previewLeads(rows: FbRow[], files: number, projects: Ref[], users
     badPhone: rows.length - withPhone.length,
     dupInFile: dup,
     existing,
+    already,
     sources: tally(withPhone, (r) => r.source || NO_SOURCE).map(([source, count]) => ({ source, count, projectId: guessProject(source, projects) })),
     owners: tally(withPhone, (r) => r.owner)
       .filter(([n]) => n)
@@ -117,7 +123,7 @@ function uniqueMeetings(rows: FbMeeting[]): DatedMeeting[] {
   const out: DatedMeeting[] = [];
   for (const r of rows) {
     if (!r.start) continue;
-    const k = meetingKey({ client: r.client, start: r.start });
+    const k = meetingKey(r as DatedMeeting);
     if (seen.has(k)) continue;
     seen.add(k);
     out.push(r as DatedMeeting);
@@ -128,9 +134,8 @@ function uniqueMeetings(rows: FbMeeting[]): DatedMeeting[] {
 async function previewMeetings(rows: FbMeeting[], files: number, projects: Ref[], users: Ref[]): Promise<MeetingsPreview> {
   const now = new Date();
   const list = uniqueMeetings(rows);
-  const keys = list.map((r) => meetingKey(r));
-  let existing = 0;
-  for (let i = 0; i < keys.length; i += 1000) existing += await prisma.meeting.count({ where: { externalId: { in: keys.slice(i, i + 1000) } } });
+  const known = await importedMeetingKeys(list);
+  const existing = list.filter((r) => known.has(meetingKey(r)) || (!r.client && known.has(legacyMeetingKey(r)))).length;
   const noDate = rows.filter((r) => !r.start).length;
   return {
     kind: "meetings",
@@ -161,6 +166,21 @@ export async function previewImportAction(files: string[]): Promise<ActionResult
   });
 }
 
+/** Keys of these meetings that are already in the system, in today's form or the older one for meetings with no client. */
+async function importedMeetingKeys(list: DatedMeeting[]): Promise<Set<string>> {
+  const keys = [...new Set([...list.map((r) => meetingKey(r)), ...list.filter((r) => !r.client).map((r) => legacyMeetingKey(r))])];
+  const found = new Set<string>();
+  for (let i = 0; i < keys.length; i += 1000) {
+    const rows = await prisma.meeting.findMany({ where: { externalId: { in: keys.slice(i, i + 1000) } }, select: { externalId: true } });
+    for (const r of rows) if (r.externalId) found.add(r.externalId);
+  }
+  return found;
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  return typeof err === "object" && err !== null && (err as { code?: unknown }).code === "P2002";
+}
+
 async function validIds() {
   const [projects, users] = await Promise.all([prisma.project.findMany({ select: { id: true } }), prisma.user.findMany({ where: { deletedAt: null }, select: { id: true } })]);
   return { projectIds: new Set(projects.map((p) => p.id)), userIds: new Set(users.map((x) => x.id)) };
@@ -185,19 +205,31 @@ export async function runImportAction(files: string[], map: { sources: Record<st
     const good = rows.filter((r) => r.phone && r.name && !seen.has(r.phone) && seen.add(r.phone));
     let created = 0;
     let merged = 0;
-    for (let i = 0; i < good.length; i += 200) {
-      const batch = good.slice(i, i + 200);
+    let again = 0;
+    const runBatch = async (batch: FbRow[]) => {
+      let c = 0;
+      let m = 0;
+      let a = 0;
       await prisma.$transaction(
         async (tx) => {
           const existing = new Map((await tx.lead.findMany({ where: { phone: { in: batch.map((r) => r.phone as string) } }, select: { id: true, phone: true } })).map((l) => [l.phone, l.id]));
+          const imported = new Set(
+            (await tx.inquiry.findMany({ where: { externalId: { in: batch.map(leadRowKey) } }, select: { externalId: true } })).map((x) => x.externalId),
+          );
           for (const r of batch) {
             const phone = r.phone as string;
+            const key = leadRowKey(r);
+            // this row was imported before: nothing is added twice
+            if (imported.has(key)) {
+              a++;
+              continue;
+            }
             const note = `יובא מפיירברי${r.owner ? `. מנהל לקוח בפיירברי: ${r.owner}` : ""}${r.status ? `. סטטוס בפיירברי: ${r.status}` : ""}`;
             const leadId = existing.get(phone);
             if (leadId) {
-              await tx.inquiry.create({ data: { leadId, source: r.source || "פיירברי", projectId: proj(r.source), campaign: r.ad || null, payload: { fireberry: true } } });
+              await tx.inquiry.create({ data: { leadId, source: r.source || "פיירברי", projectId: proj(r.source), campaign: r.ad || null, payload: { fireberry: true }, externalId: key } });
               await tx.activity.create({ data: { leadId, kind: "in", text: "פנייה מפיירברי נוספה לכרטיס הקיים", auto: note, userId: u.id } });
-              merged++;
+              m++;
               continue;
             }
             const { status, reason } = mapStatus(r.status);
@@ -213,24 +245,47 @@ export async function runImportAction(files: string[], map: { sources: Record<st
                 lostReason: reason,
                 ownerId: owner(r.owner),
                 nextAt: r.next,
-                closedAt: status === "won" ? createdAt : null,
+                // the export has no closing date: the last update is the closest to it
+                closedAt: status === "won" ? (r.updated ?? createdAt) : null,
                 createdAt,
                 lastActivityAt: createdAt,
                 createdById: u.id,
-                inquiries: { create: { source: r.source || "פיירברי", projectId: proj(r.source), campaign: r.ad || null, payload: { fireberry: true }, createdAt } },
+                inquiries: { create: { source: r.source || "פיירברי", projectId: proj(r.source), campaign: r.ad || null, payload: { fireberry: true }, createdAt, externalId: key } },
                 activities: { create: { kind: "in", text: "יובא מפיירברי", auto: note, userId: u.id, createdAt } },
               },
             });
-            created++;
+            existing.set(phone, "");
+            c++;
           }
         },
         { timeout: 120_000 },
       );
+      created += c;
+      merged += m;
+      again += a;
+    };
+    for (let i = 0; i < good.length; i += 200) {
+      const batch = good.slice(i, i + 200);
+      try {
+        await runBatch(batch);
+      } catch (err) {
+        // a lead that arrived from a form in the meantime: the second try finds it and adds to it
+        try {
+          if (!isUniqueViolation(err)) throw err;
+          await runBatch(batch);
+        } catch {
+          revalidatePath("/", "layout");
+          throw new ActionError(`הייבוא נעצר באמצע. עד עכשיו נכנסו ${created} לידים חדשים ו-${merged} פניות לכרטיסים קיימים. אפשר להעלות שוב את אותו קובץ: מה שכבר נכנס לא ייכנס פעמיים.`);
+        }
+      }
     }
     const skipped = rows.length - good.length;
-    await audit({ actorId: u.id, actorName: u.name, action: "lead.import", meta: { created, merged, skipped, files: parsed.files }, ip: await requestIp() });
+    await audit({ actorId: u.id, actorName: u.name, action: "lead.import", meta: { created, merged, again, skipped, files: parsed.files }, ip: await requestIp() });
     revalidatePath("/", "layout");
-    return { message: `הייבוא הסתיים: ${created} לידים חדשים, ${merged} צורפו לכרטיסים קיימים, ${skipped} שורות דולגו`, data: { created, merged, skipped } };
+    const parts = [`${created} לידים חדשים`, `${merged} צורפו לכרטיסים קיימים`];
+    if (again) parts.push(`${again} כבר יובאו בעבר ולא נוספו שוב`);
+    parts.push(`${skipped} שורות דולגו`);
+    return { message: `הייבוא הסתיים: ${parts.join(", ")}`, data: { created, merged, skipped } };
   });
 }
 
@@ -250,7 +305,10 @@ export async function runMeetingsImportAction(files: string[], map: { reps: Reco
       return id && userIds.has(id) ? id : null;
     };
     const now = Date.now();
-    const list = uniqueMeetings(parsed.rows);
+    const unique = uniqueMeetings(parsed.rows);
+    // meetings with no client imported by the first version of the import carry the older key
+    const known = await importedMeetingKeys(unique.filter((r) => !r.client));
+    const list = unique.filter((r) => r.client || !known.has(legacyMeetingKey(r)));
     const data = list.map((r) => ({
       externalId: meetingKey(r),
       clientName: r.client || null,

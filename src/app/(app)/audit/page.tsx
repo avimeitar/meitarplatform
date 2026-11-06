@@ -75,7 +75,9 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                 </td>
                 <td>{r.actorName ?? <span className="muted">לא מזוהה</span>}</td>
                 <td>{AUDIT_LABELS[r.action] ?? r.action}</td>
-                <td>{r.targetName ?? ""}</td>
+                <td>
+                  <bdi>{r.targetName ?? ""}</bdi>
+                </td>
                 <td className="muted">
                   {describe(r.meta)}
                   {r.ip ? <small className="ltr">{r.ip}</small> : null}

@@ -9,7 +9,10 @@ import { useToast } from "@/components/ui/Overlays";
 type Ref = { id: string; name: string };
 type Person = Ref & { active: boolean };
 
-const MAX_CHARS = 15_000_000;
+// the server takes up to 15 MB per request; Hebrew text takes two bytes a letter once it is sent
+const MAX_BYTES = 14_500_000;
+const TOO_BIG = "הקבצים גדולים מדי לייבוא אחד. אפשר לייבא אותם בכמה פעמים, קובץ או שניים בכל פעם";
+const FAILED = "הייבוא לא הצליח. ייתכן שהחיבור נפל או שהקבצים גדולים מדי. אפשר לנסות שוב, או לייבא בכמה פעמים";
 const FIRST_SUBJECTS = 12;
 
 /** Fireberry exports are UTF-8. A file saved again in Excel on a Hebrew computer can be Windows-1255. */
@@ -39,11 +42,12 @@ export function ImportScreen({ projects, users }: { projects: Ref[]; users: Pers
     setPreview(null);
     setNames(chosen.length > 1 ? `${chosen.length} קבצים` : chosen[0].name);
     const texts = await Promise.all(chosen.map(readText));
-    if (texts.reduce((n, t) => n + t.length, 0) > MAX_CHARS) return setError("הקבצים גדולים מדי. אפשר לייבא אותם בכמה פעמים");
+    if (new Blob([JSON.stringify(texts)]).size > MAX_BYTES) return setError(TOO_BIG);
     setFiles(texts);
     setBusy(true);
-    const r = await previewImportAction(texts);
+    const r = await previewImportAction(texts).catch(() => null);
     setBusy(false);
+    if (!r) return setError(FAILED);
     if (!r.ok || !r.data) return setError(r.ok ? "משהו השתבש" : r.error);
     const p = r.data;
     setPreview(p);
@@ -54,8 +58,10 @@ export function ImportScreen({ projects, users }: { projects: Ref[]; users: Pers
   async function go() {
     if (!preview) return;
     setBusy(true);
-    const r = preview.kind === "leads" ? await runImportAction(files, { sources: map.a, owners: map.b }) : await runMeetingsImportAction(files, { subjects: map.a, reps: map.b });
+    setError("");
+    const r = await (preview.kind === "leads" ? runImportAction(files, { sources: map.a, owners: map.b }) : runMeetingsImportAction(files, { subjects: map.a, reps: map.b })).catch(() => null);
     setBusy(false);
+    if (!r) return setError(FAILED);
     if (!r.ok) return setError(r.error);
     const text = r.message ?? "הייבוא הסתיים";
     setDone({ text, kind: preview.kind });
@@ -195,7 +201,7 @@ function LeadsStep({ p, projects, users, map, setA, setB, busy, go }: StepProps<
         </div>
         <div className="panel">
           <h2>למי שייך כל ליד?</h2>
-          <p className="muted">לפי ״מנהל לקוח״ בפיירברי. מי שלא קיים כאן יכול לקבל ליד שלא שויך, ואז אפשר לחלק אחר כך.</p>
+          <p className="muted">לפי ״מנהל לקוח״ בפיירברי. אם מנהל הלקוח לא קיים כאן, הליד ייכנס בלי שיוך, ואפשר לשייך אותו אחר כך.</p>
           <table className="data map-table">
             <tbody>
               {p.owners.map((o) => (
@@ -215,7 +221,8 @@ function LeadsStep({ p, projects, users, map, setA, setB, busy, go }: StepProps<
       </div>
       <div className="panel" style={{ marginTop: 16 }}>
         <p>
-          ייכנסו <b>{fresh}</b> לידים חדשים, ו-<b>{p.existing}</b> פניות יצורפו ללידים שכבר קיימים במערכת. הכול נרשם ביומן הפעולות.
+          ייכנסו <b>{fresh}</b> לידים חדשים, ו-<b>{Math.max(0, p.existing - p.already)}</b> פניות יצורפו ללידים שכבר קיימים במערכת.
+          {p.already ? ` ${p.already} שורות כבר יובאו בעבר ולא ייכנסו שוב.` : ""} הכול נרשם ביומן הפעולות.
         </p>
         <div className="row-end">
           <button type="button" className="btn primary" disabled={busy} onClick={go}>
@@ -248,7 +255,7 @@ function MeetingsStep({ p, projects, users, map, setA, setB, busy, go }: StepPro
           <b>{again}</b>
         </div>
         <div className="kpi">
-          <span>פגישות קרובות שתואמו</span>
+          <span>פגישות קרובות שנקבעו</span>
           <b>{p.upcoming}</b>
         </div>
       </div>

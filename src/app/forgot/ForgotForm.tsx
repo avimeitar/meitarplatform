@@ -60,7 +60,7 @@ export function ForgotForm({ channels }: { channels: Channel[] }) {
             <small>לפחות 8 תווים. אפשר משפט קצר שקל לזכור.</small>
           </label>
           <label className="fld">
-            <span>שוב את הסיסמה החדשה</span>
+            <span>אימות הסיסמה החדשה</span>
             <input type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
           </label>
           {error && (

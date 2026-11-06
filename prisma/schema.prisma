@@ -224,6 +224,8 @@ model Inquiry {
   campaign  String?
   page      String?
   payload   Json?
+  // imported inquiries: importing the same file again doesn't add them twice
+  externalId String?  @unique
   createdAt DateTime @default(now())
 
   @@index([leadId])
@@ -244,6 +246,7 @@ model Activity {
   createdAt DateTime @default(now())
 
   @@index([leadId, createdAt])
+  @@index([userId, createdAt])
 }
 
 // A meeting stands on its own. Most are booked from a lead, but a meeting can exist without one
@@ -293,6 +296,7 @@ model Task {
   createdAt   DateTime  @default(now())
 
   @@index([userId, done, dueAt])
+  @@index([done, dueAt])
   @@index([leadId])
 }
 

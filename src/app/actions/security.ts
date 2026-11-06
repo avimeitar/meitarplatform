@@ -18,9 +18,10 @@ async function requireSystemAdmin() {
 export async function setRequireCodeAction(on: boolean): Promise<ActionResult> {
   return run(async () => {
     const u = await requireSystemAdmin();
-    if (on && availableChannels().length === 0) throw new ActionError("קודם צריך לחבר SMS או וואטסאפ, כדי שהקודים יגיעו לטלפון. ההוראות ב-docs/SETUP.md");
-    await applyRequireCode(!!on);
-    await audit({ actorId: u.id, actorName: u.name, action: "settings.require_code", meta: { on: !!on }, ip: await requestIp() });
+    const value = on === true;
+    if (value && availableChannels().length === 0) throw new ActionError("קודם צריך לחבר SMS או וואטסאפ, כדי שהקודים יגיעו לטלפון. ההוראות ב-docs/SETUP.md");
+    await applyRequireCode(value);
+    await audit({ actorId: u.id, actorName: u.name, action: "settings.require_code", meta: { on: value }, ip: await requestIp() });
     revalidatePath("/users");
     return { message: on ? "מעכשיו כל כניסה צריכה גם קוד לנייד" : "הכניסה עכשיו עם טלפון וסיסמה בלבד" };
   });
@@ -30,15 +31,16 @@ export async function setRequireCodeAction(on: boolean): Promise<ActionResult> {
 export async function setSignInLockAction(locked: boolean): Promise<ActionResult> {
   return run(async () => {
     const u = await requireSystemAdmin();
-    await setFlag(LOCKED, !!locked);
+    const value = locked === true;
+    await setFlag(LOCKED, value);
     let signedOut = 0;
-    if (locked) {
+    if (value) {
       const users = await prisma.user.findMany({ where: { deletedAt: null }, include: { role: true } });
       const others = users.filter((x) => !isSystemAdminRole(x.role)).map((x) => x.id);
       signedOut = (await prisma.session.deleteMany({ where: { userId: { in: others } } })).count;
     }
-    await audit({ actorId: u.id, actorName: u.name, action: "settings.lock", meta: { locked: !!locked, signedOut }, ip: await requestIp() });
+    await audit({ actorId: u.id, actorName: u.name, action: "settings.lock", meta: { locked: value, signedOut }, ip: await requestIp() });
     revalidatePath("/", "layout");
-    return { message: locked ? "הכניסה נעולה. רק מנהלי מערכת יכולים להיכנס, וכל השאר נותקו" : "הכניסה פתוחה לכל המשתמשים" };
+    return { message: value ? "הכניסה נעולה. רק מנהלי מערכת יכולים להיכנס, וכל השאר נותקו" : "הכניסה פתוחה לכל המשתמשים" };
   });
 }

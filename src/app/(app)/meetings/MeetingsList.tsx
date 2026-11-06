@@ -45,8 +45,8 @@ export function MeetingsList({ rows }: { rows: MeetingRowData[] }) {
             <th>לקוח</th>
             <th>פרויקט</th>
             <th>מקום</th>
-            <th>מי קבע</th>
-            <th>מי נפגש</th>
+            <th>נקבעה ע״י</th>
+            <th>נפגשים עם</th>
             <th>סטטוס</th>
             <th>אישור הגעה</th>
           </tr>

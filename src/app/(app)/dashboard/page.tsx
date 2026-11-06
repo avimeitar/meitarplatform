@@ -110,7 +110,7 @@ async function AgentHome() {
 async function ManagerHome({ days }: { days: number }) {
   const u = await requirePageUser("reports.view");
   const d = await managerDashboard(days);
-  const unassigned = d.overnight.filter((l) => !l.ownerId);
+  const unassigned = d.unassignedIds;
   const canAssign = can(u, "leads.assign");
   const night = new Date(d.nightStart);
   const F = ["לידים", "נוצר קשר", "נקבעה פגישה", "התקיימה פגישה", "נחתמה עסקה"];
@@ -123,7 +123,7 @@ async function ManagerHome({ days }: { days: number }) {
             {greet()}, {u.firstName}
           </h1>
           <p className="sub">
-            {today()}. {d.overnight.length === 1 ? "ליד אחד נכנס" : `${d.overnight.length} לידים נכנסו`} מאז {dayLabel(night)} ב-19:00.
+            {today()}. {d.overnightCount === 1 ? "ליד אחד נכנס" : `${d.overnightCount} לידים נכנסו`} מאז {dayLabel(night)} ב-19:00.
           </p>
         </div>
       </div>
@@ -172,7 +172,7 @@ async function ManagerHome({ days }: { days: number }) {
           ) : (
             <p className="empty">לא נכנסו לידים חדשים.</p>
           )}
-          {canAssign && <AutoAssignAll leadIds={unassigned.map((l) => l.id)} />}
+          {canAssign && <AutoAssignAll leadIds={unassigned} />}
         </div>
         <div className="panel">
           <div className="panel-head">
@@ -186,7 +186,7 @@ async function ManagerHome({ days }: { days: number }) {
       </div>
       <div className="panel funnel">
         <div className="panel-head">
-          <h2>המסלול {days === 1 ? "היום" : `ב-${days} הימים האחרונים`}</h2>
+          <h2>מליד לעסקה {days === 1 ? "היום" : `ב-${days} הימים האחרונים`}</h2>
           <div className="seg" role="group" aria-label="תקופה">
             {[
               [1, "היום"],

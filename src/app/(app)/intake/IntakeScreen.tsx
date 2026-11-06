@@ -30,7 +30,7 @@ function useCopy() {
       await navigator.clipboard.writeText(text);
       toast(done);
     } catch {
-      toast("לא הצלחנו להעתיק. אפשר לסמן את הטקסט ולהעתיק ידנית");
+      toast("לא הצלחנו להעתיק. אפשר לסמן את הטקסט ולהעתיק ידנית", { error: true });
     }
   };
 }

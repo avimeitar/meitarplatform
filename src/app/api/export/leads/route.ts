@@ -1,10 +1,10 @@
 import { audit } from "@/lib/audit";
-import { ST, isLeadStatus, type LeadStatus } from "@/lib/crm/constants";
+import { ST, type LeadStatus } from "@/lib/crm/constants";
+import { leadsQuery } from "@/lib/crm/leadViews";
 import { fD, fT } from "@/lib/crm/dates";
 import { prisma } from "@/lib/db";
 import { formatPhone } from "@/lib/phone";
 import { can, getCurrentUser, requestIp } from "@/lib/session";
-import type { Prisma } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -21,16 +21,10 @@ export async function GET(req: Request) {
   const u = await getCurrentUser();
   if (!u) return new Response("Unauthorized", { status: 401 });
   if (!can(u, "leads.export")) return new Response("Forbidden", { status: 403 });
-  const sp = new URL(req.url).searchParams;
-  const and: Prisma.LeadWhereInput[] = [can(u, "leads.view_all") ? {} : { ownerId: u.id }];
-  if (sp.get("project")) and.push({ projectId: sp.get("project") as string });
-  if (sp.get("source")) and.push({ source: sp.get("source") as string });
-  const st = sp.get("status");
-  if (st && isLeadStatus(st)) and.push({ status: st });
-  const owner = sp.get("owner");
-  if (owner) and.push(owner === "none" ? { ownerId: null } : { ownerId: owner });
-  const rows = await prisma.lead.findMany({ where: { AND: and }, orderBy: { createdAt: "desc" }, take: 50_000, include: { project: { select: { name: true } }, owner: { select: { name: true } } } });
-  const head = ["שם", "טלפון", "אימייל", "פרויקט", "מקור הגעה", "סטטוס", "סיבה", "סוכן", "נוצר", "מתי לחזור", "ניסיונות בלי מענה", "אישר דיוור"];
+  // the same view, search and filters as the screen the button was pressed on
+  const { where } = leadsQuery(u, Object.fromEntries(new URL(req.url).searchParams));
+  const rows = await prisma.lead.findMany({ where, orderBy: { createdAt: "desc" }, take: 50_000, include: { project: { select: { name: true } }, owner: { select: { name: true } } } });
+  const head = ["שם", "טלפון", "אימייל", "פרויקט", "מקור הגעה", "סטטוס", "סיבה", "סוכן", "נוצר", "מתי לחזור", "ניסיונות בלי מענה", "אישור דיוור"];
   const lines = [head.join(",")];
   for (const l of rows)
     lines.push(

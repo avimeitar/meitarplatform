@@ -66,6 +66,19 @@ function ShellInner({ user, counts, projects, people, children }: { user: ShellU
     setMeOpen(false);
   }, [pathname]);
 
+  // the phone menu: focus moves into it when it opens, and Escape closes it
+  useEffect(() => {
+    if (!menuOpen) return;
+    document.querySelector<HTMLElement>(".side .nav a")?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setMenuOpen(false);
+      document.querySelector<HTMLElement>(".top .menu-btn")?.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
+
   const active = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   function openNewLead(prefill?: string) {
@@ -80,7 +93,10 @@ function ShellInner({ user, counts, projects, people, children }: { user: ShellU
   return (
     <NewLeadCtx.Provider value={openNewLead}>
     <div className="app">
-      <aside className={"side" + (menuOpen ? " open" : "")} aria-label="תפריט">
+      <aside id="side-menu" className={"side" + (menuOpen ? " open" : "")} aria-label="תפריט">
+        <button type="button" className="ib side-close" aria-label="סגירת התפריט" onClick={() => setMenuOpen(false)}>
+          <Icon name="x" />
+        </button>
         <div className="brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/logo-white.webp" alt="מיתר נדל״ן והשקעות" />
@@ -132,7 +148,7 @@ function ShellInner({ user, counts, projects, people, children }: { user: ShellU
       {menuOpen && <div className="scrim side-scrim" onClick={() => setMenuOpen(false)} />}
 
       <header className="top">
-        <button type="button" className="ib mob" aria-label="פתיחת התפריט" onClick={() => setMenuOpen(true)}>
+        <button type="button" className="ib mob menu-btn" aria-label="פתיחת התפריט" aria-expanded={menuOpen} aria-controls="side-menu" onClick={() => setMenuOpen(true)}>
           <Icon name="menu" />
         </button>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -165,15 +181,15 @@ function ShellInner({ user, counts, projects, people, children }: { user: ShellU
         {[
           { href: "/dashboard", label: "ראשי", icon: "home" as IconName },
           { href: "/leads", label: "לידים", icon: "users" as IconName },
-          { href: "/work", label: "שיחות", icon: "phone" as IconName },
+          { href: "/work", label: "תור שיחות", icon: "phone" as IconName },
           { href: "/meetings", label: "פגישות", icon: "cal" as IconName },
         ].map((t) => (
-          <Link key={t.href} href={t.href} className={active(t.href) ? "on" : ""}>
+          <Link key={t.href} href={t.href} className={active(t.href) ? "on" : ""} aria-current={active(t.href) ? "page" : undefined}>
             <Icon name={t.icon} />
             {t.label}
           </Link>
         ))}
-        <button type="button" onClick={() => setMenuOpen(true)}>
+        <button type="button" aria-expanded={menuOpen} aria-controls="side-menu" onClick={() => setMenuOpen(true)}>
           <Icon name="menu" />
           עוד
         </button>

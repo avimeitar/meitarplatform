@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { setMyChannelAction } from "@/app/actions/account";
 import { useToast } from "@/components/ui/Overlays";
@@ -33,9 +34,15 @@ export function AccountScreen({ name, roleName, phone, channel, channels, sessio
     toast("הסיסמה הוחלפה. שאר המכשירים נותקו");
   }
 
+  const router = useRouter();
+  const [outBusy, setOutBusy] = useState(false);
   async function signOutOthers() {
+    if (outBusy) return;
+    setOutBusy(true);
     const r = await authPost("/revoke-other-sessions", {});
-    toast(r.ok ? "נותקת מכל שאר המכשירים" : authErrorText(r));
+    setOutBusy(false);
+    toast(r.ok ? "נותקת מכל שאר המכשירים" : authErrorText(r), { error: !r.ok });
+    if (r.ok) router.refresh();
   }
 
   return (
@@ -62,7 +69,7 @@ export function AccountScreen({ name, roleName, phone, channel, channels, sessio
               <small>לפחות 8 תווים. אפשר משפט קצר שקל לזכור.</small>
             </label>
             <label className="fld">
-              <span>שוב את הסיסמה החדשה</span>
+              <span>אימות הסיסמה החדשה</span>
               <input type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
             </label>
             {error && (
@@ -88,7 +95,7 @@ export function AccountScreen({ name, roleName, phone, channel, channels, sessio
           <h2 style={{ marginTop: 18 }}>מכשירים מחוברים</h2>
           <p className="muted">{sessions === 1 ? "החשבון מחובר במכשיר אחד, זה שלך." : `החשבון מחובר ב-${sessions} מכשירים.`}</p>
           {sessions > 1 && (
-            <button type="button" className="btn" style={{ marginTop: 10 }} onClick={signOutOthers}>
+            <button type="button" className="btn" style={{ marginTop: 10 }} disabled={outBusy} onClick={signOutOthers}>
               לנתק את כל שאר המכשירים
             </button>
           )}

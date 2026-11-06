@@ -41,7 +41,7 @@ export function InviteForm({ token, name, phone, purpose }: { token: string; nam
           <small>לפחות 8 תווים. אפשר משפט קצר שקל לזכור.</small>
         </label>
         <label className="fld">
-          <span>שוב את הסיסמה</span>
+          <span>אימות הסיסמה</span>
           <input type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
         </label>
         {error && (

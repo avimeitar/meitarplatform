@@ -1,54 +1,20 @@
 import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
 import { Icon } from "@/components/Icon";
-import { ST, ST_ORDER, OPEN_STATUSES, MANUAL_SOURCES, isLeadStatus } from "@/lib/crm/constants";
-import { addDays, sod } from "@/lib/crm/dates";
-import { leadScope } from "@/lib/crm/views";
+import { ST, ST_ORDER, MANUAL_SOURCES } from "@/lib/crm/constants";
+import { leadsQuery, VIEWS } from "@/lib/crm/leadViews";
 import { prisma } from "@/lib/db";
 import { formatPhone } from "@/lib/phone";
-import { can, requirePageUser, type CurrentUser } from "@/lib/session";
+import { can, requirePageUser } from "@/lib/session";
 import { LeadsTable, type LeadRow } from "./LeadsTable";
 
 export const metadata = { title: "לידים" };
 
-type View = { key: string; label: string; where: (u: CurrentUser) => Prisma.LeadWhereInput };
-
-const VIEWS: Record<string, View> = {
-  today: { key: "today", label: "לטפל היום", where: (u) => ({ ownerId: u.id, OR: [{ status: "new" }, { status: { in: OPEN_STATUSES.filter((s) => s !== "new" && s !== "meet") }, nextAt: { lt: addDays(sod(new Date()), 1) } }] }) },
-  mine: { key: "mine", label: "הלידים שלי", where: (u) => ({ ownerId: u.id }) },
-  all: { key: "all", label: "כל הלידים", where: () => ({}) },
-  new: { key: "new", label: "חדשים", where: () => ({ status: "new" }) },
-  unassigned: { key: "unassigned", label: "לא שויכו", where: () => ({ ownerId: null }) },
-  noans: { key: "noans", label: "אין מענה", where: () => ({ status: "noans" }) },
-  meet: { key: "meet", label: "נקבעה פגישה", where: () => ({ status: "meet" }) },
-  resched: { key: "resched", label: "לתאם מחדש", where: () => ({ status: "resched" }) },
-  follow: { key: "follow", label: "אחרי פגישה", where: () => ({ status: { in: ["held", "follow"] } }) },
-  won: { key: "won", label: "נחתמו", where: () => ({ status: "won" }) },
-  lost: { key: "lost", label: "לא רלוונטי", where: () => ({ status: "lost" }) },
-};
-const AGENT_VIEWS = ["today", "mine", "new", "resched", "all"];
-const MANAGER_VIEWS = ["all", "new", "unassigned", "noans", "meet", "resched", "follow", "won", "lost"];
-
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const u = await requirePageUser();
   const sp = await searchParams;
-  const manager = can(u, "leads.assign");
-  const viewKeys = (manager ? MANAGER_VIEWS : AGENT_VIEWS).filter((k) => k !== "all" || can(u, "leads.view_all"));
-  const view = VIEWS[sp.view ?? ""] && viewKeys.includes(sp.view ?? "") ? VIEWS[sp.view as string] : VIEWS[manager ? "all" : "mine"];
-  const q = (sp.q ?? "").trim().slice(0, 60);
+  const { manager, viewKeys, view, q, filters, scope, where } = leadsQuery(u, sp);
   const limit = Math.min(500, Math.max(50, Number(sp.limit) || 50));
-  const filters: Prisma.LeadWhereInput[] = [];
-  if (sp.project) filters.push({ projectId: sp.project });
-  if (sp.source) filters.push({ source: sp.source });
-  if (sp.status && isLeadStatus(sp.status)) filters.push({ status: sp.status });
-  if (sp.owner && manager) filters.push(sp.owner === "none" ? { ownerId: null } : { ownerId: sp.owner });
-  const scope = leadScope(u);
-
-  let where: Prisma.LeadWhereInput;
-  if (q) {
-    const digits = q.replace(/\D/g, "").replace(/^0/, "");
-    where = { AND: [scope, { OR: [{ name: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }, ...(digits.length >= 3 ? [{ phone: { contains: digits } }] : [])] }] };
-  } else where = { AND: [scope, view.where(u), ...filters] };
 
   const orderBy: Prisma.LeadOrderByWithRelationInput[] = ["today", "noans", "resched", "follow"].includes(view.key) && !q ? [{ nextAt: "asc" }, { createdAt: "desc" }] : [{ createdAt: "desc" }];
   const [rows, total, counts, projects, people] = await Promise.all([
@@ -90,7 +56,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         </h1>
         {can(u, "leads.export") && (
           <div className="head-actions">
-            <a className="btn ghost" href={`/api/export/leads?${new URLSearchParams(Object.entries({ project: sp.project, source: sp.source, status: sp.status, owner: sp.owner }).filter(([, v]) => v) as [string, string][])}`}>
+            <a className="btn ghost" href={`/api/export/leads?${new URLSearchParams(Object.entries({ view: view.key, q: q || undefined, project: sp.project, source: sp.source, status: sp.status, owner: sp.owner }).filter(([, v]) => v) as [string, string][])}`}>
               <Icon name="upload" />
               ייצוא לאקסל
             </a>

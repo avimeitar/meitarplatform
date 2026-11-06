@@ -9,7 +9,18 @@ type Channel = "sms" | "whatsapp";
 const STORE = "meitar.otpChannel";
 const VIA: Record<Channel, string> = { sms: "ב-SMS", whatsapp: "בוואטסאפ" };
 
-export function LoginForm({ channels, initialPhone, notice, next }: { channels: Channel[]; initialPhone: string; notice: string; next: string }) {
+/** Where to go after signing in: only a page of this site ("/\\evil.example" and similar tricks go home instead). */
+function safeNext(next: string | null | undefined): string {
+  if (!next) return "/";
+  try {
+    const u = new URL(next, window.location.origin);
+    return u.origin === window.location.origin ? u.pathname + u.search + u.hash : "/";
+  } catch {
+    return "/";
+  }
+}
+
+export function LoginForm({ codeOn, channels, initialPhone, notice, next }: { codeOn: boolean; channels: Channel[]; initialPhone: string; notice: string; next: string }) {
   const [step, setStep] = useState<"password" | "channel" | "code">("password");
   const [ident, setIdent] = useState(initialPhone);
   const [password, setPassword] = useState("");
@@ -111,15 +122,15 @@ export function LoginForm({ channels, initialPhone, notice, next }: { channels: 
       restart(r);
       setError(authErrorText(r));
       setCode("");
-      codeRef.current?.focus();
+      // the field is disabled while checking: focus it once it is enabled again, so the keyboard stays open
+      setTimeout(() => codeRef.current?.focus(), 50);
       return;
     }
     go();
   }
 
   function go() {
-    const dest = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
-    window.location.assign(dest);
+    window.location.assign(safeNext(next));
   }
 
   const toPhone = tail ? (
@@ -223,7 +234,7 @@ export function LoginForm({ channels, initialPhone, notice, next }: { channels: 
   return (
     <>
       <h1>כניסה למערכת</h1>
-      <p className="sub">נכנסים עם מספר הטלפון והסיסמה, ואז עם קוד שנשלח לנייד</p>
+      <p className="sub">{codeOn ? "נכנסים עם מספר הטלפון והסיסמה, ואז עם קוד שנשלח לנייד" : "נכנסים עם מספר הטלפון והסיסמה"}</p>
       {notice && (
         <p className="login-ok" role="status">
           {notice}

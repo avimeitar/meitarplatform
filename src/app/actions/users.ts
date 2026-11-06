@@ -5,7 +5,7 @@ import { z } from "zod";
 import { run, type ActionResult } from "@/lib/action";
 import { audit } from "@/lib/audit";
 import { OPEN_STATUSES } from "@/lib/crm/constants";
-import { pickAutoOwner } from "@/lib/crm/service";
+import { autoOwnerPicker } from "@/lib/crm/service";
 import { prisma } from "@/lib/db";
 import { canGrant, rolePermissions } from "@/lib/permissions";
 import { formatPhone, normalizePhone } from "@/lib/phone";
@@ -137,13 +137,18 @@ export async function setUserActiveAction(userId: string, active: boolean): Prom
   return run(async () => {
     const u = await requireActionUser("users.manage");
     const target = await manageable(u, userId);
+    const on = active === true; // only a real boolean, nothing else from the client
     if (target.id === u.id) throw new ActionError("אי אפשר להשבית את עצמך");
-    if (!active && (await countActiveAdmins(target.id)) === 0) throw new ActionError("חייב להישאר לפחות מנהל מערכת פעיל אחד");
-    await prisma.user.update({ where: { id: target.id }, data: { active, ...(active ? {} : { autoAssign: false }) } });
-    if (!active) await revokeSessions(target.id);
-    await audit({ actorId: u.id, actorName: u.name, action: active ? "user.activate" : "user.deactivate", targetType: "user", targetId: target.id, targetName: target.name, ip: await requestIp() });
+    if (!on && (await countActiveAdmins(target.id)) === 0) throw new ActionError("חייב להישאר לפחות מנהל מערכת פעיל אחד");
+    await prisma.user.update({ where: { id: target.id }, data: { active: on, ...(on ? {} : { autoAssign: false }) } });
+    if (!on) {
+      await revokeSessions(target.id);
+      // links sent before the account was paused don't work after it comes back
+      await prisma.invite.updateMany({ where: { userId: target.id, usedAt: null }, data: { usedAt: new Date() } });
+    }
+    await audit({ actorId: u.id, actorName: u.name, action: on ? "user.activate" : "user.deactivate", targetType: "user", targetId: target.id, targetName: target.name, ip: await requestIp() });
     refresh();
-    return { message: active ? `החשבון של ${target.name} פעיל שוב` : `החשבון של ${target.name} הושבת ונותק מכל המכשירים` };
+    return { message: on ? `החשבון של ${target.name} פעיל שוב` : `החשבון של ${target.name} הושבת ונותק מכל המכשירים` };
   });
 }
 
@@ -162,14 +167,18 @@ export async function deleteUserAction(userId: string, reassignTo: string): Prom
     const counts = await prisma.$transaction(async (tx) => {
       await tx.user.update({ where: { id: target.id }, data: { autoAssign: false } });
       const leads = await tx.lead.findMany({ where: { ownerId: target.id, status: { in: OPEN_STATUSES } }, select: { id: true } });
+      // with automatic distribution the leads are spread evenly, not all given to one person
+      const pick = heir ? null : await autoOwnerPicker(tx);
       for (const l of leads) {
-        const owner = heir ? heir.id : await pickAutoOwner(tx);
+        const owner = heir ? heir.id : pick!();
         await tx.lead.update({ where: { id: l.id }, data: { ownerId: owner } });
         await tx.activity.create({ data: { leadId: l.id, kind: "status", text: `הליד הועבר אחרי שהחשבון של ${target.name} נמחק`, auto: "העברה אוטומטית במחיקת משתמש", userId: u.id } });
         await tx.task.updateMany({ where: { leadId: l.id, done: false, userId: target.id }, data: { userId: owner ?? u.id } });
       }
       const otherTasks = await tx.task.updateMany({ where: { userId: target.id, done: false }, data: { userId: heir?.id ?? u.id } });
       const future = await tx.meeting.updateMany({ where: { hostId: target.id, status: "set", startAt: { gte: new Date() } }, data: { hostId: heir?.id ?? u.id } });
+      // the confirmation call before a meeting goes to whoever set it
+      await tx.meeting.updateMany({ where: { setById: target.id, status: "set", startAt: { gte: new Date() } }, data: { setById: heir?.id ?? u.id } });
       await tx.user.update({
         where: { id: target.id },
         data: { active: false, deletedAt: new Date(), phoneNumber: null, email: `deleted-${target.id}@users.meitar.invalid`, autoAssign: false },
@@ -177,7 +186,7 @@ export async function deleteUserAction(userId: string, reassignTo: string): Prom
       await tx.account.deleteMany({ where: { userId: target.id } });
       await tx.invite.deleteMany({ where: { userId: target.id } });
       return { leads: leads.length, tasks: otherTasks.count, meetings: future.count };
-    });
+    }, { timeout: 180_000, maxWait: 10_000 });
     await revokeSessions(target.id);
     await audit({ actorId: u.id, actorName: u.name, action: "user.delete", targetType: "user", targetId: target.id, targetName: target.name, meta: { ...counts, to: heir?.name ?? "חלוקה אוטומטית" }, ip: await requestIp() });
     refresh();

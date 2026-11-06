@@ -2,7 +2,10 @@
 import type { LeadStatus, MeetingStatus } from "./crm/constants";
 import { normalizePhone } from "./phone";
 
-export type FbRow = { name: string; phone: string | null; rawPhone: string; email: string; created: Date | null; owner: string; status: string; source: string; next: Date | null; ad: string };
+export type FbRow = { name: string; phone: string | null; rawPhone: string; email: string; created: Date | null; updated: Date | null; owner: string; status: string; source: string; next: Date | null; ad: string };
+
+/** Fireberry writes "-" in an empty field. */
+const clean = (v: string) => (v.trim() === "-" ? "" : v.trim().replace(/\s+/g, " "));
 
 /** RFC 4180 CSV, with quotes and newlines inside fields. */
 export function parseCsv(text: string): string[][] {
@@ -42,6 +45,7 @@ const COLS: Record<keyof Omit<FbRow, "phone" | "rawPhone"> | "phone", string[]> 
   phone: ["טלפון", "טלפון נייד", "נייד", "phone", "mobile"],
   email: ["אימייל", "דוא\"ל", "מייל", "email"],
   created: ["נוצר בתאריך", "תאריך יצירה", "created"],
+  updated: ["עודכן בתאריך", "תאריך עדכון"],
   owner: ["מנהל לקוח", "נציג", "סוכן", "owner"],
   status: ["סטטוס", "status"],
   source: ["מקור הגעה", "מקור", "source"],
@@ -49,18 +53,23 @@ const COLS: Record<keyof Omit<FbRow, "phone" | "rawPhone"> | "phone", string[]> 
   ad: ["מודעה", "קמפיין", "campaign"],
 };
 
-/** "05/11/2026 14:30" (Fireberry's format), also "5.11.2026" and ISO. Local (Israel) time. */
+function validDate(y: number, mo: number, d: number, hh: number, mm: number): Date | null {
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || hh > 23 || mm > 59) return null;
+  const date = new Date(y, mo - 1, d, hh, mm);
+  // 31/02 would roll over into March: such a date is refused, not moved
+  if (Number.isNaN(date.getTime()) || date.getMonth() !== mo - 1 || date.getDate() !== d) return null;
+  return date;
+}
+
+/** "05/11/2026 14:30" (Fireberry's format, day first), also "5.11.2026", "5-11-2026" and ISO "2026-11-05". Israel time. Anything else is not guessed. */
 export function parseFbDate(v: string): Date | null {
   const s = v.trim();
-  if (!s) return null;
-  const m = /^(\d{1,2})[/.](\d{1,2})[/.](\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/.exec(s);
-  if (m) {
-    const y = +m[3] < 100 ? 2000 + +m[3] : +m[3];
-    const d = new Date(y, +m[2] - 1, +m[1], m[4] ? +m[4] : 10, m[5] ? +m[5] : 0);
-    return Number.isNaN(d.getTime()) ? null : d;
-  }
-  const d = new Date(s);
-  return Number.isNaN(d.getTime()) ? null : d;
+  if (!s || s === "-") return null;
+  const m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/.exec(s);
+  if (m) return validDate(+m[3] < 100 ? 2000 + +m[3] : +m[3], +m[2], +m[1], m[4] ? +m[4] : 10, m[5] ? +m[5] : 0);
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/.exec(s);
+  if (iso) return validDate(+iso[1], +iso[2], +iso[3], iso[4] ? +iso[4] : 10, iso[5] ? +iso[5] : 0);
+  return null;
 }
 
 export function readFireberry(text: string): { rows: FbRow[]; headers: string[]; missing: string[] } {
@@ -69,13 +78,14 @@ export function readFireberry(text: string): { rows: FbRow[]; headers: string[];
   const headers = table[0].map((h) => h.trim());
   const idx = (k: keyof typeof COLS) => headers.findIndex((h) => COLS[k].includes(h));
   const at = Object.fromEntries((Object.keys(COLS) as (keyof typeof COLS)[]).map((k) => [k, idx(k)])) as Record<keyof typeof COLS, number>;
-  const get = (r: string[], k: keyof typeof COLS) => (at[k] >= 0 ? (r[at[k]] ?? "").trim() : "");
+  const get = (r: string[], k: keyof typeof COLS) => (at[k] >= 0 ? clean(r[at[k]] ?? "") : "");
   const rows = table.slice(1).map((r) => ({
     name: get(r, "name"),
     rawPhone: get(r, "phone"),
     phone: normalizePhone(get(r, "phone")),
     email: get(r, "email"),
     created: parseFbDate(get(r, "created")),
+    updated: parseFbDate(get(r, "updated")),
     owner: get(r, "owner"),
     status: get(r, "status"),
     source: get(r, "source"),
@@ -86,7 +96,7 @@ export function readFireberry(text: string): { rows: FbRow[]; headers: string[];
   return { rows, headers, missing };
 }
 
-/** Fireberry statuses → the new ones. "מכחיש פנייה" and similar become "לא רלוונטי" with that reason. */
+/** Fireberry statuses → the new ones. "מכחיש פנייה" and similar become "לא רלוונטי" with a reason in our wording. */
 export function mapStatus(s: string): { status: LeadStatus; reason: string | null } {
   const v = s.trim();
   const table: Record<string, LeadStatus> = {
@@ -105,8 +115,18 @@ export function mapStatus(s: string): { status: LeadStatus; reason: string | nul
     "לא רלוונטי": "lost",
   };
   if (table[v]) return { status: table[v], reason: v === "לא רלוונטי" ? "אחר" : null };
-  const lostReasons = ["מכחיש פנייה", "לא מעוניין", "אין תקציב", "מספר לא תקין", "רכש במקום אחר"];
-  if (lostReasons.includes(v)) return { status: "lost", reason: v };
+  const lostReasons: Record<string, string> = {
+    "מכחיש פנייה": "הכחשת פנייה",
+    "הכחשת פנייה": "הכחשת פנייה",
+    "לא מעוניין": "אין עניין",
+    "לא מעוניינת": "אין עניין",
+    "אין עניין": "אין עניין",
+    "אין תקציב": "אין תקציב",
+    "מספר לא תקין": "מספר לא תקין",
+    "רכש במקום אחר": "רכישה במקום אחר",
+    "רכישה במקום אחר": "רכישה במקום אחר",
+  };
+  if (lostReasons[v]) return { status: "lost", reason: lostReasons[v] };
   return { status: v ? "process" : "new", reason: null };
 }
 
@@ -149,9 +169,6 @@ export function fireberryKind(headers: string[]): "leads" | "meetings" | null {
   return null;
 }
 
-/** Fireberry writes "-" in an empty field. */
-const clean = (v: string) => (v.trim() === "-" ? "" : v.trim().replace(/\s+/g, " "));
-
 export function readFireberryMeetings(text: string): FbMeeting[] {
   const table = parseCsv(text);
   if (!table.length) return [];
@@ -169,7 +186,7 @@ export function readFireberryMeetings(text: string): FbMeeting[] {
   }));
 }
 
-/** Fireberry meeting statuses → set / cancel / held. Anything unknown stays "תואמה", so a past one shows up under "לעדכן". */
+/** Fireberry meeting statuses → set / cancel / held. Anything unknown stays "נקבעה", so a past one shows up under "לסמן מה קרה". */
 export function mapMeetingStatus(s: string): MeetingStatus {
   const v = s.trim().replace(/\s+/g, " ");
   if (v === "התקימה" || v === "התקיימה" || v === "בוצעה" || v === "הושלמה" || v === "המשך טיפול לאחר פגישה" || /^נקבעה פגישה שני/.test(v)) return "held";
@@ -178,8 +195,20 @@ export function mapMeetingStatus(s: string): MeetingStatus {
 }
 
 /** The same meeting in two exports gets the same key, so importing again never doubles it. */
-export function meetingKey(m: { client: string; start: Date }): string {
+export function meetingKey(m: { client: string; start: Date; rep?: string; subject?: string }): string {
+  const base = legacyMeetingKey(m);
+  // meetings with no client are told apart by their rep and subject as well
+  return m.client ? base : `${base}|${(m.rep ?? "").toLowerCase()}|${(m.subject ?? "").toLowerCase()}`;
+}
+
+/** The key the first version of the import gave every meeting (still used for meetings with a client). */
+export function legacyMeetingKey(m: { client: string; start: Date }): string {
   return "fb:" + m.client.toLowerCase() + "|" + m.start.toISOString().slice(0, 16);
+}
+
+/** One lead row of one export: the same row in another file, or the same file again, gets the same key. */
+export function leadRowKey(r: { phone: string | null; created: Date | null; source: string }): string {
+  return `fb:${r.phone ?? ""}|${r.created ? r.created.toISOString().slice(0, 16) : ""}|${r.source.toLowerCase()}`;
 }
 
 /** A cautious first guess of the project from the meeting's subject. Unclear subjects stay without a project. */

@@ -37,5 +37,6 @@ export default async function UsersPage() {
   const roleRows: RoleRow[] = roles.map((r) => ({ id: r.id, name: r.name, key: r.key, grantable: canGrant(mine, rolePermissions(r)) }));
   const isAdmin = mine.has("users.manage") && mine.has("roles.manage");
   const security = isAdmin ? { requireCode: await requireCode(), locked: await signInLocked(), codesReady: availableChannels().length > 0 } : null;
-  return <UsersScreen users={rows} roles={roleRows} security={security} />;
+  const codeOn = await requireCode();
+  return <UsersScreen codeOn={codeOn} users={rows} roles={roleRows} security={security} />;
 }

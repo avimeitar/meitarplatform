@@ -3,7 +3,7 @@ export const PERMISSIONS = {
   "leads.view_all": { group: "לידים", label: "לראות את כל הלידים, גם של סוכנים אחרים" },
   "leads.create": { group: "לידים", label: "להוסיף לידים" },
   "leads.edit": { group: "לידים", label: "לעדכן לידים: פרטים, שיחות, סטטוס ופגישות" },
-  "leads.assign": { group: "לידים", label: "להעביר לידים בין סוכנים" },
+  "leads.assign": { group: "לידים", label: "לשייך לידים לסוכנים" },
   "leads.bulk": { group: "לידים", label: "פעולות על כמה לידים יחד" },
   "leads.delete": { group: "לידים", label: "למחוק לידים" },
   "leads.export": { group: "לידים", label: "לייצא לידים לקובץ" },

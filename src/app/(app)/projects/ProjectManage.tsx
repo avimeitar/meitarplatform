@@ -35,7 +35,7 @@ export function ReactivateProjectButton({ project }: { project: ProjectView }) {
     setBusy(true);
     const r = await setProjectActiveAction(project.id, true);
     setBusy(false);
-    toast(r.ok ? (r.message ?? "הפרויקט חזר לפעילות") : r.error);
+    toast(r.ok ? (r.message ?? "הפרויקט חזר לפעילות") : r.error, { error: !r.ok });
     if (r.ok) router.refresh();
   }
   return (

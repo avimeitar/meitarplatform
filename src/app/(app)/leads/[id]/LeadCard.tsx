@@ -63,9 +63,23 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
     runner(setLeadStatusAction(lead.id, s));
   }
 
+  const [deleting, setDeleting] = useState(false);
   async function remove() {
+    if (deleting) return;
+    setDeleting(true);
     const r = await runner(deleteLeadAction(lead.id));
+    setDeleting(false);
     if (r.ok) router.push("/leads");
+  }
+
+  // on a phone the composer is further down the page: bring it into view
+  function openComposer(k: "wa" | "call" | "note" | "task") {
+    setTab(k);
+    setTimeout(() => {
+      const el = document.getElementById("composer");
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      el?.querySelector<HTMLElement>("textarea, input, select")?.focus({ preventScroll: true });
+    }, 50);
   }
 
   return (
@@ -103,7 +117,7 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
               <Icon name="cal" />
               קביעת פגישה
             </button>
-            <button type="button" className="btn ghost" onClick={() => setTab("task")}>
+            <button type="button" className="btn ghost" onClick={() => openComposer("task")}>
               <Icon name="check" />
               משימה
             </button>
@@ -131,8 +145,9 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
           {(["noans", "resched", "lost"] as LeadStatus[]).map((s) => {
             const on = lead.status === s;
             return (
-              <button key={s} type="button" className={"exit " + (on ? "on " + ST[s].c : "")} aria-pressed={on} disabled={!perms.edit} onClick={() => setStatus(s)}>
-                {ST[s].l}
+              <button key={s} type="button" className={"exit " + (on ? "on " + ST[s].c : "")} aria-pressed={on && s !== "noans"} disabled={!perms.edit} onClick={() => setStatus(s)}>
+                {/* already "אין מענה": the button logs one more try, and says so */}
+                {on && s === "noans" ? "עוד ניסיון בלי מענה" : ST[s].l}
                 {on && s === "lost" && lead.lostReason ? `: ${lead.lostReason}` : ""}
               </button>
             );
@@ -164,10 +179,10 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
       </div>
 
       <div className="lead-grid">
-        <aside className="details-col">
+        <div className="details-col">
           <div className="panel">
             <div className="panel-head" style={{ marginBottom: 4 }}>
-              <h3>פגישות</h3>
+              <h2 className="h-sm">פגישות</h2>
               {perms.edit && (
                 <button type="button" className="btn sm" onClick={() => sheets.book(sl)}>
                   <Icon name="plus" />
@@ -183,7 +198,7 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
           </div>
           <Details lead={lead} projects={projects} people={people} perms={perms} />
           <div className="panel">
-            <h3>משימות פתוחות</h3>
+            <h2 className="h-sm">משימות פתוחות</h2>
             <TaskList tasks={lead.tasks} showUser empty="אין משימות פתוחות." />
           </div>
           {perms.del && (
@@ -196,8 +211,8 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
                     <button type="button" className="btn ghost" onClick={() => setConfirmDelete(false)}>
                       לא
                     </button>
-                    <button type="button" className="btn danger" onClick={remove}>
-                      כן, למחוק
+                    <button type="button" className="btn danger" disabled={deleting} onClick={remove}>
+                      {deleting ? "מוחקים…" : "כן, למחוק"}
                     </button>
                   </div>
                 </>
@@ -208,11 +223,11 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
               )}
             </div>
           )}
-        </aside>
+        </div>
 
         <div className="timeline-col">
           {perms.edit && (
-            <div className="panel composer">
+            <div className="panel composer" id="composer">
               <div className="ctabs" role="tablist" aria-label="פעולה">
                 {(
                   [
@@ -292,8 +307,8 @@ function MeetingRow({ m, lead, canEdit }: { m: MeetingItem; lead: SheetLead; can
         <small>{[m.projectName, m.place].filter(Boolean).join(", ")}</small>
       </div>
       <small className="muted">
-        {m.setByName ? `קבע: ${m.setByName}. ` : ""}
-        {m.hostName ? `נפגש: ${m.hostName}` : ""}
+        {m.setByName ? `נקבעה ע״י ${m.setByName}. ` : ""}
+        {m.hostName ? `נפגשים עם ${m.hostName}` : ""}
       </small>
       <div className="mi-acts">
         <div className="mseg" role="group" aria-label="סטטוס הפגישה">
@@ -315,7 +330,7 @@ function MeetingRow({ m, lead, canEdit }: { m: MeetingItem; lead: SheetLead; can
         )}
         {canEdit && m.status === "set" && (
           <button type="button" className="link" onClick={() => sheets.book(lead, { meetingId: m.id })}>
-            העברה
+            שינוי מועד
           </button>
         )}
       </div>
@@ -328,7 +343,7 @@ function Details({ lead, projects, people, perms }: { lead: LeadCardData; projec
   const created = new Date(lead.createdAt);
   return (
     <div className="panel">
-      <h3>פרטי הליד</h3>
+      <h2 className="h-sm">פרטי הליד</h2>
       <dl className="kv">
         <dt>טלפון</dt>
         <dd>
@@ -374,8 +389,18 @@ function Details({ lead, projects, people, perms }: { lead: LeadCardData; projec
         </dd>
         <dt>מתי לחזור</dt>
         <dd>
+          {/* saved when leaving the field, not on every keystroke */}
           {perms.edit ? (
-            <input type="date" aria-label="מתי לחזור" value={lead.nextAt ? iso(new Date(lead.nextAt)) : ""} onChange={(e) => runner(updateLeadAction(lead.id, { nextAt: e.target.value }))} />
+            <input
+              key={lead.nextAt ?? "none"}
+              type="date"
+              aria-label="מתי לחזור"
+              defaultValue={lead.nextAt ? iso(new Date(lead.nextAt)) : ""}
+              onBlur={(e) => {
+                const v = e.target.value;
+                if (v !== (lead.nextAt ? iso(new Date(lead.nextAt)) : "")) runner(updateLeadAction(lead.id, { nextAt: v }));
+              }}
+            />
           ) : lead.nextAt ? (
             dayLabel(new Date(lead.nextAt))
           ) : (
@@ -440,8 +465,9 @@ function WaComposer({ lead, onSent }: { lead: SheetLead; onSent: (text: string) 
   );
 }
 
-function NoteComposer({ onSave }: { onSave: (text: string) => Promise<unknown> }) {
+function NoteComposer({ onSave }: { onSave: (text: string) => Promise<{ ok: boolean }> }) {
   const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
   return (
     <div className="cpane">
       <textarea rows={3} placeholder="כתבו הערה" aria-label="הערה" value={text} onChange={(e) => setText(e.target.value)} />
@@ -450,13 +476,16 @@ function NoteComposer({ onSave }: { onSave: (text: string) => Promise<unknown> }
         <button
           type="button"
           className="btn primary"
-          disabled={!text.trim()}
+          disabled={!text.trim() || busy}
           onClick={async () => {
-            await onSave(text.trim());
-            setText("");
+            setBusy(true);
+            const r = await onSave(text.trim());
+            setBusy(false);
+            // the text stays when saving failed, so nothing typed is lost
+            if (r.ok) setText("");
           }}
         >
-          שמירת הערה
+          {busy ? "שומרים…" : "שמירת הערה"}
         </button>
       </div>
     </div>
@@ -470,6 +499,7 @@ function TaskComposer({ leadId, people, canAssign, meId, defaultUser }: { leadId
   const [day, setDay] = useState(iso(next));
   const [time, setTime] = useState("10:00");
   const [userId, setUserId] = useState(canAssign ? defaultUser : meId);
+  const [busy, setBusy] = useState(false);
   const days = [sod(new Date()), ...Array.from({ length: 6 }, (_, i) => addDays(sod(new Date()), i + 1))].filter((d) => d.getDay() !== 6);
   return (
     <div className="cpane">
@@ -509,13 +539,15 @@ function TaskComposer({ leadId, people, canAssign, meId, defaultUser }: { leadId
         <button
           type="button"
           className="btn primary"
-          disabled={title.trim().length < 2}
+          disabled={title.trim().length < 2 || busy}
           onClick={async () => {
+            setBusy(true);
             const r = await runner(addTaskAction({ title, day, time, userId, leadId }));
+            setBusy(false);
             if (r.ok) setTitle("");
           }}
         >
-          הוספת משימה
+          {busy ? "מוסיפים…" : "הוספת משימה"}
         </button>
       </div>
     </div>

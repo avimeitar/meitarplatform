@@ -23,8 +23,8 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
     ["next", dayLabel(next, now), { startAt: { gte: next, lt: addDays(next, 1) } }],
     ...(manager ? ([["week", "השבוע", { startAt: { gte: weekStart(now), lt: addDays(weekStart(now), 7) } }]] as [string, string, Prisma.MeetingWhereInput][]) : []),
     ["upcoming", "כל הקרובות", { startAt: { gte: now } }],
-    ...(manager ? ([["past", "עבר", { startAt: { lt: now } }]] as [string, string, Prisma.MeetingWhereInput][]) : []),
-    ["stale", "לעדכן", { startAt: { lt: now }, status: "set" }],
+    ...(manager ? ([["past", "שעברו", { startAt: { lt: now } }]] as [string, string, Prisma.MeetingWhereInput][]) : []),
+    ["stale", "לסמן מה קרה", { startAt: { lt: now }, status: "set" }],
   ];
   const range = RANGES.find((r) => r[0] === sp.range) ?? RANGES.find((r) => r[0] === "upcoming")!;
   const who = sp.who === "all" || (manager && sp.who !== "mine") ? "all" : "mine";
@@ -86,7 +86,7 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
       {kpis && !q && (
         <div className="kpis">
           <div className="kpi">
-            <span>תואמו קדימה</span>
+            <span>פגישות קרובות</span>
             <b>{kpis.upcoming}</b>
           </div>
           <div className="kpi">
@@ -98,7 +98,7 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
             <b>{kpis.cancel}</b>
           </div>
           <div className="kpi">
-            <span>כמה מהפגישות התקיימו</span>
+            <span>אחוז הפגישות שהתקיימו</span>
             <b>{kpis.held + kpis.cancel ? Math.round((kpis.held / (kpis.held + kpis.cancel)) * 100) + "%" : "0%"}</b>
           </div>
         </div>

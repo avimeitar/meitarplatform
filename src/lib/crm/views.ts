@@ -26,11 +26,12 @@ export function taskRow(t: { id: string; title: string; dueAt: Date; done: boole
   return { id: t.id, title: t.title, dueAt: t.dueAt.toISOString(), done: t.done, leadId: t.leadId, leadName: t.lead?.name ?? null, userName: t.user?.name ?? null };
 }
 
+/** Meetings from today until the end of the next working day (on Thursday that includes Friday). */
 export async function agendaFor(where: Prisma.MeetingWhereInput, now = new Date()): Promise<AgendaItem[]> {
   const today = sod(now);
-  const next = nextWorkday(now);
+  const until = addDays(nextWorkday(now), 1);
   const rows = await prisma.meeting.findMany({
-    where: { AND: [where, { status: { not: "cancel" } }, { OR: [{ startAt: { gte: today, lt: addDays(today, 1) } }, { startAt: { gte: next, lt: addDays(next, 1) } }] }] },
+    where: { AND: [where, { status: { not: "cancel" } }, { startAt: { gte: today, lt: until } }] },
     orderBy: { startAt: "asc" },
     include: { lead: { select: { name: true } }, project: { select: { name: true } }, host: { select: { name: true } } },
   });
@@ -71,8 +72,17 @@ export async function managerDashboard(days: number) {
   const today = sod(now);
   const night = nightStart(now);
   const since = days === 1 ? today : addDays(today, -(days - 1));
-  const [overnight, agenda, stale, overdue, people, funnelLeads, metLeads, heldLeads, wonLeads, contacted] = await Promise.all([
-    prisma.lead.findMany({ where: { createdAt: { gte: night } }, orderBy: { createdAt: "desc" }, include: { owner: { select: { name: true } }, project: { select: { name: true } } }, take: 60 }),
+  // new leads, and leads that came back with a new inquiry since last night
+  const arrived: Prisma.LeadWhereInput = { OR: [{ createdAt: { gte: night } }, { inquiries: { some: { createdAt: { gte: night } } } }] };
+  const [overnight, overnightCount, unassignedIds, agenda, stale, overdue, people, funnelLeads, metLeads, heldLeads, wonLeads, contacted] = await Promise.all([
+    prisma.lead.findMany({
+      where: arrived,
+      orderBy: { lastActivityAt: "desc" },
+      include: { owner: { select: { name: true } }, project: { select: { name: true } }, inquiries: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } } },
+      take: 60,
+    }),
+    prisma.lead.count({ where: arrived }),
+    prisma.lead.findMany({ where: { AND: [arrived, { ownerId: null }] }, select: { id: true }, take: 500 }),
     agendaFor({}),
     prisma.meeting.count({ where: { status: "set", startAt: { lt: now } } }),
     prisma.task.count({ where: { done: false, dueAt: { lt: today } } }),
@@ -81,24 +91,26 @@ export async function managerDashboard(days: number) {
     prisma.lead.count({ where: { createdAt: { gte: since }, meetings: { some: {} } } }),
     prisma.lead.count({ where: { createdAt: { gte: since }, meetings: { some: { status: "held" } } } }),
     prisma.lead.count({ where: { createdAt: { gte: since }, status: "won" } }),
-    prisma.lead.count({ where: { createdAt: { gte: since }, status: { notIn: ["new", "noans"] }, NOT: { status: "lost", lostReason: "מספר לא תקין" } } }),
+    // contact means someone answered: an answered call, a meeting, or a status only a conversation leads to
+    prisma.lead.count({ where: { createdAt: { gte: since }, OR: [{ activities: { some: { kind: "call" } } }, { meetings: { some: {} } }, { status: { in: ["meet", "held", "follow", "won"] } }] } }),
   ]);
   const wk = weekStart(now);
-  const taskStats = await Promise.all(
-    people.map(async (p) => {
-      const [open, late, dueToday, doneWeek] = await Promise.all([
-        prisma.task.count({ where: { userId: p.id, done: false } }),
-        prisma.task.count({ where: { userId: p.id, done: false, dueAt: { lt: today } } }),
-        prisma.task.count({ where: { userId: p.id, done: false, dueAt: { gte: today, lt: addDays(today, 1) } } }),
-        prisma.task.count({ where: { userId: p.id, done: true, voided: false, doneAt: { gte: wk } } }),
-      ]);
-      return { id: p.id, name: p.name, open, late, dueToday, doneWeek };
-    }),
-  );
+  // four grouped counts for the whole team instead of four counts per person
+  const ids = people.map((p) => p.id);
+  const by = (rows: { userId: string; _count: { _all: number } }[]) => new Map(rows.map((r) => [r.userId, r._count._all]));
+  const [open, late, dueToday, doneWeek] = await Promise.all([
+    prisma.task.groupBy({ by: ["userId"], where: { userId: { in: ids }, done: false }, _count: { _all: true } }).then(by),
+    prisma.task.groupBy({ by: ["userId"], where: { userId: { in: ids }, done: false, dueAt: { lt: today } }, _count: { _all: true } }).then(by),
+    prisma.task.groupBy({ by: ["userId"], where: { userId: { in: ids }, done: false, dueAt: { gte: today, lt: addDays(today, 1) } }, _count: { _all: true } }).then(by),
+    prisma.task.groupBy({ by: ["userId"], where: { userId: { in: ids }, done: true, voided: false, doneAt: { gte: wk } }, _count: { _all: true } }).then(by),
+  ]);
+  const taskStats = people.map((p) => ({ id: p.id, name: p.name, open: open.get(p.id) ?? 0, late: late.get(p.id) ?? 0, dueToday: dueToday.get(p.id) ?? 0, doneWeek: doneWeek.get(p.id) ?? 0 }));
   const monthWon = await prisma.lead.count({ where: { status: "won", closedAt: { gte: monthStart(now) } } });
   return {
     nightStart: night.toISOString(),
-    overnight: overnight.map((l) => ({ id: l.id, name: l.name, projectName: l.project?.name ?? "", source: l.source, createdAt: l.createdAt.toISOString(), ownerName: l.owner?.name ?? null, ownerId: l.ownerId })),
+    overnightCount,
+    unassignedIds: unassignedIds.map((l) => l.id),
+    overnight: overnight.map((l) => ({ id: l.id, name: l.name, projectName: l.project?.name ?? "", source: l.source, createdAt: (l.inquiries[0]?.createdAt ?? l.createdAt).toISOString(), ownerName: l.owner?.name ?? null, ownerId: l.ownerId })),
     agenda,
     stale,
     overdue,

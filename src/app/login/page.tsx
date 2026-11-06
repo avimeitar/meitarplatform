@@ -25,7 +25,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <div className="login-card">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/logo-blue.webp" alt="מיתר נדל״ן והשקעות" />
-        <LoginForm channels={channels} initialPhone={sp.phone ?? ""} notice={sp.notice === "password-set" ? "הסיסמה נשמרה. עכשיו נכנסים עם הטלפון והסיסמה." : sp.notice === "reset" ? "הסיסמה החדשה נשמרה. אפשר להיכנס." : ""} next={sp.next ?? ""} />
+        <LoginForm codeOn={codeOn} channels={channels} initialPhone={sp.phone ?? ""} notice={sp.notice === "password-set" ? "הסיסמה נשמרה. עכשיו נכנסים עם הטלפון והסיסמה." : sp.notice === "reset" ? "הסיסמה החדשה נשמרה. אפשר להיכנס." : ""} next={sp.next ?? ""} />
         {locked && <p className="login-hint">הכניסה סגורה כרגע לכולם חוץ ממנהלי המערכת.</p>}
         {noUsers && <p className="login-hint">עוד אין משתמשים במערכת. מנהל המערכת הראשון נוצר מהגדרות Railway, לפי docs/SETUP.md.</p>}
       </div>

@@ -81,11 +81,11 @@ export function OutcomeSheet({ lead, meetingId, onDone }: { lead: SheetLead; mee
 
   useEffect(() => {
     const titles: Record<Step, string> = {
-      "1": meetingId ? `מה ${fn} אמר על הפגישה?` : `מה קרה בשיחה עם ${fn}?`,
+      "1": meetingId ? `מה התשובה של ${fn} לגבי הפגישה?` : `מה קרה בשיחה עם ${fn}?`,
       meet: `מתי הפגישה עם ${fn}?`,
-      move: "לאיזה מועד להעביר את הפגישה?",
+      move: "מה המועד החדש לפגישה?",
       later: `מתי לחזור ל${fn}?`,
-      lost: `למה ${fn} לא רלוונטי?`,
+      lost: `למה הליד של ${fn} לא רלוונטי?`,
     };
     drawer.retitle(titles[step]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -225,7 +225,7 @@ export function BookingStep({ lead, meetingId, direct, onBack, onDone }: { lead:
       <div className="sheet-foot">
         <button type="button" className="bigbtn call" disabled={!ready || busy} onClick={save}>
           <Icon name="cal" />
-          <span>{ready && d ? `${meetingId ? "להעביר" : "לקבוע"}: ${(sameLocal(d, sod(new Date())) ? "היום, " : sameLocal(d, addDays(sod(new Date()), 1)) ? "מחר, " : "") + WD[d.getDay()] + " " + d.getDate() + "." + (d.getMonth() + 1)}, ${time}${meetingId ? "" : ", " + placeLabel}` : d ? "בוחרים שעה" : "בוחרים יום ושעה"}</span>
+          <span>{ready && d ? `${meetingId ? "מועד חדש" : "לקבוע"}: ${(sameLocal(d, sod(new Date())) ? "היום, " : sameLocal(d, addDays(sod(new Date()), 1)) ? "מחר, " : "") + WD[d.getDay()] + " " + d.getDate() + "." + (d.getMonth() + 1)}, ${time}${meetingId ? "" : ", " + placeLabel}` : d ? "בוחרים שעה" : "בוחרים יום ושעה"}</span>
         </button>
       </div>
     </div>
@@ -238,12 +238,18 @@ export function NewMeetingSheet({ onDone }: { onDone?: Done }) {
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<{ id: string; name: string; phone: string; projectName: string }[]>([]);
   const [lead, setLead] = useState<SheetLead | null>(null);
+  const [state, setState] = useState<"idle" | "searching" | "failed">("idle");
 
   useEffect(() => {
     let live = true;
+    setState("searching");
     const t = setTimeout(async () => {
-      const r = await searchLeadsAction(q);
-      if (live && r.ok && r.data) setRows(r.data);
+      const r = await searchLeadsAction(q).catch(() => null);
+      if (!live) return;
+      if (r?.ok && r.data) {
+        setRows(r.data);
+        setState("idle");
+      } else setState("failed");
     }, 200);
     return () => {
       live = false;
@@ -269,7 +275,13 @@ export function NewMeetingSheet({ onDone }: { onDone?: Done }) {
           <Opt key={r.id} icon="users" title={r.name} sub={[r.projectName, "⁦" + r.phone + "⁩"].filter(Boolean).join(" · ")} onClick={() => setLead({ id: r.id, name: r.name, phoneRaw: "", projectName: r.projectName })} />
         ))}
       </div>
-      {q && !rows.length && <p className="muted">לא מצאנו ליד בשם או בטלפון הזה.</p>}
+      {state === "searching" && <p className="muted" role="status">מחפשים…</p>}
+      {state === "failed" && (
+        <p className="form-error" role="alert">
+          החיפוש לא הצליח. אפשר לבדוק את החיבור ולנסות שוב.
+        </p>
+      )}
+      {state === "idle" && q && !rows.length && <p className="muted">לא מצאנו ליד בשם או בטלפון הזה.</p>}
     </div>
   );
 }
@@ -353,9 +365,9 @@ export function useLeadSheets() {
   const drawer = useDrawer();
   return {
     afterCall: (lead: SheetLead, opts: { meetingId?: string; onDone?: Done } = {}) =>
-      drawer.open({ title: opts.meetingId ? `מה ${firstName(lead.name)} אמר על הפגישה?` : `מה קרה בשיחה עם ${firstName(lead.name)}?`, content: <OutcomeSheet lead={lead} meetingId={opts.meetingId} onDone={opts.onDone} />, sheet: true }),
+      drawer.open({ title: opts.meetingId ? `מה התשובה של ${firstName(lead.name)} לגבי הפגישה?` : `מה קרה בשיחה עם ${firstName(lead.name)}?`, content: <OutcomeSheet lead={lead} meetingId={opts.meetingId} onDone={opts.onDone} />, sheet: true }),
     book: (lead: SheetLead, opts: { meetingId?: string; onDone?: Done } = {}) =>
-      drawer.open({ title: opts.meetingId ? "לאיזה מועד להעביר את הפגישה?" : `מתי הפגישה עם ${firstName(lead.name)}?`, content: <BookingStep lead={lead} meetingId={opts.meetingId} direct onDone={opts.onDone} />, sheet: true }),
+      drawer.open({ title: opts.meetingId ? "מה המועד החדש לפגישה?" : `מתי הפגישה עם ${firstName(lead.name)}?`, content: <BookingStep lead={lead} meetingId={opts.meetingId} direct onDone={opts.onDone} />, sheet: true }),
     newMeeting: () => drawer.open({ title: "עם מי הפגישה?", content: <NewMeetingSheet />, sheet: true }),
     wa: (lead: SheetLead, onDone?: Done) => drawer.open({ title: `איזו הודעה לשלוח ל${firstName(lead.name)}?`, content: <WaSheet lead={lead} onDone={onDone} />, sheet: true }),
     won: (lead: SheetLead) => drawer.open({ title: "לסמן שנחתמה עסקה?", content: <WonConfirm lead={lead} />, sheet: true }),

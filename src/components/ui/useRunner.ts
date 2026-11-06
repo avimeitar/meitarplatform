@@ -15,7 +15,7 @@ export function useRunner() {
       if (r.ok) {
         if (!opts.quiet) toast(r.message ?? "נשמר", { undoId: r.undoId });
         router.refresh();
-      } else toast(r.error);
+      } else toast(r.error, { error: true });
       return r;
     },
     [router, toast],

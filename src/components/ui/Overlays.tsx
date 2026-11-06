@@ -5,9 +5,10 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { undoAction } from "@/app/actions/undo";
 import { Icon } from "@/components/Icon";
 
-// ---------- toast: says what changed, with a big "ביטול" when the change can be undone ----------
+// ---------- toast: says what changed, with a big "ביטול הפעולה" when the change can be undone ----------
+// A failure looks different (red), is announced at once, and stays until it is closed.
 
-type ToastFn = (message: string, opts?: { undoId?: string }) => void;
+type ToastFn = (message: string, opts?: { undoId?: string; error?: boolean }) => void;
 const ToastCtx = createContext<ToastFn>(() => {});
 export const useToast = () => useContext(ToastCtx);
 
@@ -20,18 +21,23 @@ export const useDrawer = () => useContext(DrawerCtx);
 
 export function Overlays({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const [toast, setToast] = useState<{ msg: string; undoId?: string; key: number } | null>(null);
+  const [toast, setToast] = useState<{ msg: string; undoId?: string; error?: boolean; key: number } | null>(null);
+  const [hold, setHold] = useState(false);
   const [drawer, setDrawer] = useState<DrawerSpec | null>(null);
   const drawerRef = useRef<HTMLElement>(null);
   const lastFocus = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), toast.undoId ? 6500 : 3500);
+    // errors stay until closed; the timer waits while the pointer or focus is on the toast
+    if (!toast || toast.error || hold) return;
+    const t = setTimeout(() => setToast(null), toast.undoId ? 10_000 : 4000);
     return () => clearTimeout(t);
-  }, [toast]);
+  }, [toast, hold]);
 
-  const show = useCallback<ToastFn>((msg, opts) => setToast({ msg, undoId: opts?.undoId, key: Date.now() }), []);
+  const show = useCallback<ToastFn>((msg, opts) => {
+    setHold(false);
+    setToast({ msg, undoId: opts?.undoId, error: opts?.error, key: Date.now() });
+  }, []);
 
   const close = useCallback(() => {
     setDrawer(null);
@@ -66,14 +72,17 @@ export function Overlays({ children }: { children: ReactNode }) {
     if (!id) return;
     setToast(null);
     const r = await undoAction(id);
-    show(r.ok ? r.message || "הפעולה בוטלה" : r.error);
+    show(r.ok ? r.message || "הפעולה בוטלה" : r.error, { error: !r.ok });
     router.refresh();
   }
 
   return (
     <ToastCtx.Provider value={show}>
       <DrawerCtx.Provider value={{ open, close, retitle, isOpen: !!drawer }}>
-        {children}
+        {/* while a drawer is open, the page behind it can't be reached with the keyboard or a screen reader */}
+        <div className="ov-root" inert={drawer ? true : undefined}>
+          {children}
+        </div>
         {drawer && (
           <>
             <div className="scrim" onClick={close} />
@@ -88,15 +97,33 @@ export function Overlays({ children }: { children: ReactNode }) {
             </aside>
           </>
         )}
-        <div className={"toast" + (toast ? " show" : "")} role="status" aria-live="polite">
-          {toast && (
+        <div
+          className={"toast" + (toast && !toast.error ? " show" : "")}
+          role="status"
+          aria-live="polite"
+          onPointerEnter={() => setHold(true)}
+          onPointerLeave={() => setHold(false)}
+          onFocus={() => setHold(true)}
+          onBlur={() => setHold(false)}
+        >
+          {toast && !toast.error && (
             <>
               <span>{toast.msg}</span>
               {toast.undoId && (
                 <button type="button" onClick={undo}>
-                  ביטול
+                  ביטול הפעולה
                 </button>
               )}
+            </>
+          )}
+        </div>
+        <div className={"toast err" + (toast?.error ? " show" : "")} role="alert">
+          {toast?.error && (
+            <>
+              <span>{toast.msg}</span>
+              <button type="button" onClick={() => setToast(null)}>
+                סגירה
+              </button>
             </>
           )}
         </div>

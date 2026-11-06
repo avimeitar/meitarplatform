@@ -30,7 +30,9 @@ async function main() {
   ] as const) {
     const existing = await prisma.user.findFirst({ where: { name } });
     const u = existing ?? (await createUserRecord({ name, phone: "+972" + phone.replace(/\D/g, "").slice(1), roleId: role }));
-    if (!existing) {
+    // a run that stopped half way may have left a user without a password
+    const hasPassword = await prisma.account.count({ where: { userId: u.id, providerId: "credential" } });
+    if (!existing || !hasPassword) {
       await setUserPassword(u.id, "demo-pass-1234");
       await prisma.user.update({ where: { id: u.id }, data: { autoAssign: role === agentRole.id } });
     }
@@ -57,7 +59,7 @@ async function main() {
         source: pick(SOURCES),
         projectId: proj.id,
         status,
-        lostReason: status === "lost" ? pick(["לא מעוניין", "אין תקציב", "מספר לא תקין"]) : null,
+        lostReason: status === "lost" ? pick(["אין עניין", "אין תקציב", "מספר לא תקין"]) : null,
         ownerId: owner?.id ?? null,
         attempts: status === "noans" ? 3 : 0,
         nextAt: ["process", "noans", "follow", "resched", "held"].includes(status) ? at(addDays(sod(now), Math.floor(rnd() * 4) - 1), 10 + Math.floor(rnd() * 7)) : null,

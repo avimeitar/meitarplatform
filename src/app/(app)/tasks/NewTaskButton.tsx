@@ -15,11 +15,15 @@ function TaskForm({ people, meId, canAssign }: { people: { id: string; name: str
   const [time, setTime] = useState("10:00");
   const [userId, setUserId] = useState(meId);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const days = Array.from({ length: 10 }, (_, i) => addDays(sod(new Date()), i)).filter((d) => d.getDay() !== 6);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return;
     if (title.trim().length < 2) return setError("צריך לכתוב מה לעשות");
+    setBusy(true);
     const r = await runner(addTaskAction({ title, day, time, userId }));
+    setBusy(false);
     if (r.ok) drawer.close();
     else setError(r.error);
   }
@@ -68,8 +72,8 @@ function TaskForm({ people, meId, canAssign }: { people: { id: string; name: str
         <button type="button" className="btn ghost" onClick={drawer.close}>
           ביטול
         </button>
-        <button type="submit" className="btn primary">
-          הוספת משימה
+        <button type="submit" className="btn primary" disabled={busy}>
+          {busy ? "מוסיפים…" : "הוספת משימה"}
         </button>
       </footer>
     </form>

@@ -25,13 +25,13 @@ export type UserRow = {
 };
 export type RoleRow = { id: string; name: string; key: string | null; grantable: boolean };
 
-function status(u: UserRow) {
+function status(u: UserRow, codeOn: boolean) {
   if (!u.active) return <span className="st-pill s-lost">מושבת</span>;
-  if (!u.hasPassword) return <span className="st-pill s-resched">ממתין לקביעת סיסמה</span>;
+  if (!u.hasPassword) return <span className="st-pill s-resched">טרם נקבעה סיסמה</span>;
   return (
     <span className="badge2fa">
       <Icon name="shield" />
-      פעיל, עם קוד לנייד
+      {codeOn ? "פעיל, עם קוד לנייד" : "פעיל"}
     </span>
   );
 }
@@ -43,7 +43,7 @@ function initials(name: string) {
 
 export type SecurityState = { requireCode: boolean; locked: boolean; codesReady: boolean } | null;
 
-export function UsersScreen({ users, roles, security }: { users: UserRow[]; roles: RoleRow[]; security: SecurityState }) {
+export function UsersScreen({ users, roles, security, codeOn }: { users: UserRow[]; roles: RoleRow[]; security: SecurityState; codeOn: boolean }) {
   const drawer = useDrawer();
   const active = users.filter((u) => u.active);
   const inactive = users.filter((u) => !u.active);
@@ -72,7 +72,7 @@ export function UsersScreen({ users, roles, security }: { users: UserRow[]; role
             </small>
           </div>
           <div className="u-status">
-            {status(u)}
+            {status(u, codeOn)}
             <small className="muted">{u.lastLogin ? "כניסה אחרונה " + relTime(new Date(u.lastLogin)) : "עוד לא היו כניסות"}</small>
           </div>
           {u.manageable ? (
@@ -80,8 +80,9 @@ export function UsersScreen({ users, roles, security }: { users: UserRow[]; role
               ניהול
             </button>
           ) : (
-            <span className="muted u-locked" title="יש לו הרשאות שאין לך">
+            <span className="muted u-locked">
               <Icon name="lock" />
+              <small>למשתמש הזה יש הרשאות שאין לך</small>
             </span>
           )}
         </li>
@@ -94,7 +95,7 @@ export function UsersScreen({ users, roles, security }: { users: UserRow[]; role
       <div className="page-head">
         <div>
           <h1>משתמשים</h1>
-          <p className="sub">כל משתמש נכנס עם הטלפון, סיסמה וקוד שנשלח לנייד. מה כל אחד יכול לעשות נקבע לפי התפקיד.</p>
+          <p className="sub">{codeOn ? "כל משתמש נכנס עם הטלפון, סיסמה וקוד שנשלח לנייד." : "כל משתמש נכנס עם הטלפון וסיסמה."} מה כל אחד יכול לעשות נקבע לפי התפקיד.</p>
         </div>
         <div className="head-actions">
           <button type="button" className="btn primary" onClick={openNew}>
@@ -221,7 +222,7 @@ function InviteResult({ info, name }: { info: InviteInfo; name: string }) {
       await navigator.clipboard.writeText(info.url);
       toast("הקישור הועתק");
     } catch {
-      toast("לא הצלחנו להעתיק. אפשר לסמן את הקישור ולהעתיק ידנית");
+      toast("לא הצלחנו להעתיק. אפשר לסמן את הקישור ולהעתיק ידנית", { error: true });
     }
   }
   return (
@@ -253,6 +254,7 @@ function UserManage({ user, roles, people }: { user: UserRow; roles: RoleRow[]; 
   const drawer = useDrawer();
   const runner = useRunner();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [ask, setAsk] = useState<"revoke" | "deactivate" | null>(null);
   const [heir, setHeir] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -268,6 +270,23 @@ function UserManage({ user, roles, people }: { user: UserRow; roles: RoleRow[]; 
     const r = await runner(p as never);
     setBusy(false);
     if ((r as { ok: boolean }).ok) drawer.close();
+  }
+
+  if (ask) {
+    const first = user.name.split(/\s+/)[0];
+    return (
+      <div className="sheet-body">
+        <p className="confirm-q">{ask === "revoke" ? `לנתק את ${user.name} מכל המכשירים?` : `להשבית את החשבון של ${user.name}?`}</p>
+        <p className="muted">{ask === "revoke" ? "בכל המכשירים צריך יהיה להיכנס שוב." : "החשבון ינותק מיד מכל המכשירים, ואי אפשר יהיה להיכנס איתו. אפשר להחזיר אותו לפעילות בכל רגע."}</p>
+        <button type="button" className="bigbtn danger" disabled={busy} onClick={() => act(ask === "revoke" ? revokeUserSessionsAction(user.id) : setUserActiveAction(user.id, false))}>
+          <Icon name={ask === "revoke" ? "out" : "lock"} />
+          {ask === "revoke" ? `כן, לנתק את ${first}` : `כן, להשבית את ${first}`}
+        </button>
+        <button type="button" className="bigbtn light" onClick={() => setAsk(null)}>
+          לא, לחזור
+        </button>
+      </div>
+    );
   }
 
   if (confirmDelete)
@@ -314,7 +333,7 @@ function UserManage({ user, roles, people }: { user: UserRow; roles: RoleRow[]; 
           </button>
         )}
         {user.active && !user.isMe && (
-          <button type="button" className="opt" disabled={busy} onClick={() => act(revokeUserSessionsAction(user.id))}>
+          <button type="button" className="opt" disabled={busy} onClick={() => setAsk("revoke")}>
             <span className="oi">
               <Icon name="out" />
             </span>
@@ -325,7 +344,7 @@ function UserManage({ user, roles, people }: { user: UserRow; roles: RoleRow[]; 
           </button>
         )}
         {!user.isMe && (
-          <button type="button" className={"opt " + (user.active ? "warn" : "good")} disabled={busy} onClick={() => act(setUserActiveAction(user.id, !user.active))}>
+          <button type="button" className={"opt " + (user.active ? "warn" : "good")} disabled={busy} onClick={() => (user.active ? setAsk("deactivate") : act(setUserActiveAction(user.id, true)))}>
             <span className="oi">
               <Icon name={user.active ? "lock" : "check"} />
             </span>
@@ -355,11 +374,32 @@ function UserManage({ user, roles, people }: { user: UserRow; roles: RoleRow[]; 
 function SecurityPanel({ s }: { s: NonNullable<SecurityState> }) {
   const runner = useRunner();
   const [busy, setBusy] = useState(false);
+  // turning the code off and locking sign-in affect everyone, so they ask first
+  const [ask, setAsk] = useState<"codeOff" | "lock" | null>(null);
   async function flip(p: Promise<{ ok: boolean }>) {
     setBusy(true);
+    setAsk(null);
     await runner(p as never);
     setBusy(false);
   }
+  if (ask)
+    return (
+      <div className="panel sec-panel">
+        <h2>אבטחת כניסה</h2>
+        <p className="confirm-q">{ask === "lock" ? "לנעול את הכניסה?" : "לכבות את הקוד לנייד?"}</p>
+        <p className="muted">
+          {ask === "lock" ? "כל המשתמשים חוץ ממנהלי המערכת ינותקו עכשיו, ולא יוכלו להיכנס עד שהכניסה תיפתח." : "מעכשיו נכנסים עם טלפון וסיסמה בלבד, בלי קוד. זה פחות בטוח."}
+        </p>
+        <div className="row-end">
+          <button type="button" className="btn" onClick={() => setAsk(null)}>
+            לא, לחזור
+          </button>
+          <button type="button" className="btn danger" disabled={busy} onClick={() => flip(ask === "lock" ? setSignInLockAction(true) : setRequireCodeAction(false))}>
+            {ask === "lock" ? "כן, לנעול" : "כן, לכבות"}
+          </button>
+        </div>
+      </div>
+    );
   return (
     <div className="panel sec-panel">
       <h2>אבטחת כניסה</h2>
@@ -374,7 +414,7 @@ function SecurityPanel({ s }: { s: NonNullable<SecurityState> }) {
                 : "כבוי: נכנסים עם טלפון וסיסמה בלבד. אפשר להפעיל אחרי שמחברים SMS או וואטסאפ."}
           </small>
         </div>
-        <button type="button" className={"btn " + (s.requireCode ? "" : "primary")} disabled={busy || (!s.requireCode && !s.codesReady)} onClick={() => flip(setRequireCodeAction(!s.requireCode))}>
+        <button type="button" className={"btn " + (s.requireCode ? "" : "primary")} disabled={busy || (!s.requireCode && !s.codesReady)} onClick={() => (s.requireCode ? setAsk("codeOff") : flip(setRequireCodeAction(true)))}>
           {s.requireCode ? "לכבות" : "להפעיל"}
         </button>
       </div>
@@ -383,7 +423,7 @@ function SecurityPanel({ s }: { s: NonNullable<SecurityState> }) {
           <b>כניסת משתמשים</b>
           <small>{s.locked ? "נעולה: רק מנהלי מערכת יכולים להיכנס." : "פתוחה לכל המשתמשים הפעילים."}</small>
         </div>
-        <button type="button" className={"btn " + (s.locked ? "primary" : "")} disabled={busy} onClick={() => flip(setSignInLockAction(!s.locked))}>
+        <button type="button" className={"btn " + (s.locked ? "primary" : "danger-outline")} disabled={busy} onClick={() => (s.locked ? flip(setSignInLockAction(false)) : setAsk("lock"))}>
           {s.locked ? "לפתוח" : "לנעול"}
         </button>
       </div>
