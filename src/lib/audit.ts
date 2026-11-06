@@ -63,6 +63,9 @@ export const AUDIT_LABELS: Record<string, string> = {
   "apikey.revoke": "ביטול מפתח לקליטת לידים",
   "project.create": "הוספת פרויקט",
   "project.update": "עדכון פרויקט",
+  "settings.require_code": "שינוי חובת קוד בכניסה",
+  "settings.lock": "נעילה או פתיחה של הכניסה למשתמשים",
+  "auth.blocked_locked": "ניסיון כניסה כשהכניסה נעולה",
 };
 
 export function maskPhone(p: string | null | undefined): string {

@@ -1,6 +1,7 @@
 import { prisma } from "./db";
 import { normalizePhone } from "./phone";
 import { BUILT_IN_ROLES, type BuiltInRoleKey } from "./permissions";
+import { LOCKED, REQUIRE_CODE, applyRequireCode, setFlag } from "./settings";
 import { createInviteLink, createUserRecord, setUserPassword } from "./users";
 
 const DEFAULT_PROJECTS = [
@@ -23,6 +24,8 @@ export async function ensureBaseData(): Promise<void> {
       await prisma.role.update({ where: { id: existing.id }, data: { locked: true } });
     }
   }
+  if (!(await prisma.setting.findUnique({ where: { key: REQUIRE_CODE } }))) await applyRequireCode(false);
+  if (!(await prisma.setting.findUnique({ where: { key: LOCKED } }))) await setFlag(LOCKED, false);
   if ((await prisma.project.count()) === 0) {
     await prisma.project.createMany({ data: DEFAULT_PROJECTS.map((p, i) => ({ ...p, sortOrder: i })) });
   }

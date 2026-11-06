@@ -3,6 +3,7 @@ import { appBaseURL, getAuth } from "./auth";
 import { prisma } from "./db";
 import { realProviderConnected, senderFor } from "./otp";
 import { rolePermissions, type Permission } from "./permissions";
+import { requireCode } from "./settings";
 
 export const INVITE_HOURS = 72;
 export const RESET_HOURS = 24;
@@ -35,6 +36,7 @@ export async function setUserPassword(userId: string, password: string): Promise
 
 export async function createUserRecord(input: { name: string; phone: string; email?: string | null; roleId: string; createdById?: string | null }) {
   const id = randomUUID();
+  const code = await requireCode();
   return prisma.user.create({
     data: {
       id,
@@ -43,7 +45,7 @@ export async function createUserRecord(input: { name: string; phone: string; ema
       email: input.email?.trim().toLowerCase() || placeholderEmail(id),
       roleId: input.roleId,
       createdById: input.createdById ?? null,
-      twoFactorEnabled: true,
+      twoFactorEnabled: code,
     },
   });
 }

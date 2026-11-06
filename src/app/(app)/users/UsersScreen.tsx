@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { setRequireCodeAction, setSignInLockAction } from "@/app/actions/security";
 import { createUserAction, deleteUserAction, revokeUserSessionsAction, sendLinkAction, setUserActiveAction, updateUserAction, type InviteInfo } from "@/app/actions/users";
 import { Icon } from "@/components/Icon";
 import { useDrawer, useToast } from "@/components/ui/Overlays";
@@ -40,7 +41,9 @@ function initials(name: string) {
   return (p[0]?.[0] ?? "") + (p[1]?.[0] ?? "");
 }
 
-export function UsersScreen({ users, roles }: { users: UserRow[]; roles: RoleRow[] }) {
+export type SecurityState = { requireCode: boolean; locked: boolean; codesReady: boolean } | null;
+
+export function UsersScreen({ users, roles, security }: { users: UserRow[]; roles: RoleRow[]; security: SecurityState }) {
   const drawer = useDrawer();
   const active = users.filter((u) => u.active);
   const inactive = users.filter((u) => !u.active);
@@ -100,6 +103,7 @@ export function UsersScreen({ users, roles }: { users: UserRow[]; roles: RoleRow
           </button>
         </div>
       </div>
+      {security && <SecurityPanel s={security} />}
       <div className="panel">{active.length ? list(active) : <p className="empty">אין משתמשים פעילים.</p>}</div>
       {inactive.length > 0 && (
         <>
@@ -342,6 +346,46 @@ function UserManage({ user, roles, people }: { user: UserRow; roles: RoleRow[]; 
             </span>
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** Two switches only system administrators see: the sign-in code, and closing sign-in for everyone else. */
+function SecurityPanel({ s }: { s: NonNullable<SecurityState> }) {
+  const runner = useRunner();
+  const [busy, setBusy] = useState(false);
+  async function flip(p: Promise<{ ok: boolean }>) {
+    setBusy(true);
+    await runner(p as never);
+    setBusy(false);
+  }
+  return (
+    <div className="panel sec-panel">
+      <h2>אבטחת כניסה</h2>
+      <div className="sec-row">
+        <div>
+          <b>קוד לנייד בכל כניסה</b>
+          <small>
+            {s.requireCode
+              ? "פעיל: נכנסים עם טלפון, סיסמה וקוד שנשלח ב-SMS או בוואטסאפ."
+              : s.codesReady
+                ? "כבוי: נכנסים עם טלפון וסיסמה בלבד. מומלץ להפעיל."
+                : "כבוי: נכנסים עם טלפון וסיסמה בלבד. אפשר להפעיל אחרי שמחברים SMS או וואטסאפ."}
+          </small>
+        </div>
+        <button type="button" className={"btn " + (s.requireCode ? "" : "primary")} disabled={busy || (!s.requireCode && !s.codesReady)} onClick={() => flip(setRequireCodeAction(!s.requireCode))}>
+          {s.requireCode ? "לכבות" : "להפעיל"}
+        </button>
+      </div>
+      <div className="sec-row">
+        <div>
+          <b>כניסת משתמשים</b>
+          <small>{s.locked ? "נעולה: רק מנהלי מערכת יכולים להיכנס." : "פתוחה לכל המשתמשים הפעילים."}</small>
+        </div>
+        <button type="button" className={"btn " + (s.locked ? "primary" : "")} disabled={busy} onClick={() => flip(setSignInLockAction(!s.locked))}>
+          {s.locked ? "לפתוח" : "לנעול"}
+        </button>
       </div>
     </div>
   );

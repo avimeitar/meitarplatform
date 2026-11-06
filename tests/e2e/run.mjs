@@ -30,7 +30,9 @@ async function login(p, [phone, pass]) {
   await p.fill("input[name=username]", phone);
   await p.fill("input[name=password]", pass);
   await p.click("button[type=submit]");
-  await p.waitForSelector('h1:has-text("לאן לשלוח"), h1:has-text("מקלידים")', { timeout: 15000 });
+  // the code step appears only while "code at every sign-in" is on
+  await Promise.race([p.waitForURL("**/dashboard", { timeout: 15000 }), p.waitForSelector('h1:has-text("לאן לשלוח"), h1:has-text("מקלידים")', { timeout: 15000 })]).catch(() => {});
+  if (p.url().endsWith("/dashboard")) return;
   if (await p.locator('h1:has-text("לאן לשלוח")').count()) await p.click(".opt >> nth=0");
   await p.waitForSelector(".code-input");
   await p.waitForTimeout(400);
@@ -53,7 +55,7 @@ try {
   await a.waitForTimeout(1200);
   ok("wrong password is refused", ((await a.locator(".form-error").textContent().catch(() => "")) || "").includes("לא נכונים"));
   await login(a, ADMIN);
-  ok("admin signs in with password + code", a.url().endsWith("/dashboard"));
+  ok("admin signs in", a.url().endsWith("/dashboard"));
 
   // ---- users: invite, set password, deactivate, delete ----
   const newPhone = "050-" + String(Date.now()).slice(-7);

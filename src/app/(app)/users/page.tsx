@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db";
 import { canGrant, rolePermissions } from "@/lib/permissions";
 import { formatPhone } from "@/lib/phone";
 import { requirePageUser } from "@/lib/session";
+import { availableChannels } from "@/lib/otp";
+import { requireCode, signInLocked } from "@/lib/settings";
 import { isPlaceholderEmail } from "@/lib/users";
 import { UsersScreen, type RoleRow, type UserRow } from "./UsersScreen";
 
@@ -33,5 +35,7 @@ export default async function UsersPage() {
     isMe: u.id === me.id,
   }));
   const roleRows: RoleRow[] = roles.map((r) => ({ id: r.id, name: r.name, key: r.key, grantable: canGrant(mine, rolePermissions(r)) }));
-  return <UsersScreen users={rows} roles={roleRows} />;
+  const isAdmin = mine.has("users.manage") && mine.has("roles.manage");
+  const security = isAdmin ? { requireCode: await requireCode(), locked: await signInLocked(), codesReady: availableChannels().length > 0 } : null;
+  return <UsersScreen users={rows} roles={roleRows} security={security} />;
 }

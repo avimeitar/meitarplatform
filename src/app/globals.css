@@ -811,3 +811,8 @@ a.lk:hover b{color:var(--blue-ink);text-decoration:underline}
 .map-list{list-style:none;margin:8px 0 0;padding:0;line-height:2}
 .fld small.err,.err{color:var(--red)}
 .drawer:focus{outline:none}
+.sec-panel{margin-bottom:16px}
+.sec-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-top:1px solid var(--line-soft)}
+.sec-panel h2 + .sec-row{border-top:0}
+.sec-row small{display:block;margin-top:2px;color:var(--ink-3);font-size:var(--fs-1)}
+.sec-row .btn{flex:none;min-width:96px}

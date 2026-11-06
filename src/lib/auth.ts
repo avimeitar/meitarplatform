@@ -6,6 +6,7 @@ import { phoneNumber, twoFactor } from "better-auth/plugins";
 import { audit, maskPhone } from "./audit";
 import { prisma } from "./db";
 import { parseChannel, sendCode, type OtpChannel } from "./otp";
+import { isSystemAdminRole, signInLocked } from "./settings";
 
 const OTP_PER_HOUR = 8;
 const SIGN_IN_PATHS = new Set(["/sign-in/phone-number", "/sign-in/email"]);
@@ -78,7 +79,7 @@ const auditTrail = {
           if (SIGN_IN_PATHS.has(ctx.path ?? "")) {
             if (isAPIError(returned)) {
               const code = (returned.body as { code?: string } | undefined)?.code;
-              await audit({ action: code === "ACCOUNT_INACTIVE" ? "auth.blocked_inactive" : "auth.login_failed", targetName: who, meta: { code }, ip });
+              await audit({ action: code === "ACCOUNT_INACTIVE" ? "auth.blocked_inactive" : code === "SIGN_IN_LOCKED" ? "auth.blocked_locked" : "auth.login_failed", targetName: who, meta: { code }, ip });
               return;
             }
             const s = ctx.context.newSession;
@@ -163,9 +164,12 @@ function createAuth() {
         create: {
           // Deactivated and deleted accounts cannot sign in, not even with a trusted device.
           before: async (session) => {
-            const u = await prisma.user.findUnique({ where: { id: session.userId }, select: { active: true, deletedAt: true } });
+            const u = await prisma.user.findUnique({ where: { id: session.userId }, select: { active: true, deletedAt: true, role: true } });
             if (!u || !u.active || u.deletedAt) {
               throw new APIError("FORBIDDEN", { message: "החשבון הזה לא פעיל. אפשר לפנות למנהל המערכת.", code: "ACCOUNT_INACTIVE" });
+            }
+            if ((await signInLocked()) && !isSystemAdminRole(u.role)) {
+              throw new APIError("FORBIDDEN", { message: "הכניסה למערכת סגורה כרגע. אפשר לפנות למנהל המערכת.", code: "SIGN_IN_LOCKED" });
             }
             return { data: session };
           },

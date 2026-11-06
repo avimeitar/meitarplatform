@@ -40,7 +40,7 @@ const MESSAGES: Record<string, string> = {
 
 export function authErrorText(r: AuthResult<unknown>): string {
   if (r.status === 429 && r.code !== "OTP_HOURLY_LIMIT") return "היו יותר מדי ניסיונות. אפשר לנסות שוב בעוד כמה דקות.";
-  if (r.code === "ACCOUNT_INACTIVE" || r.code === "OTP_HOURLY_LIMIT") return r.message || "אי אפשר להמשיך כרגע.";
+  if (r.code === "ACCOUNT_INACTIVE" || r.code === "OTP_HOURLY_LIMIT" || r.code === "SIGN_IN_LOCKED") return r.message || "אי אפשר להמשיך כרגע.";
   if (r.code && MESSAGES[r.code]) return MESSAGES[r.code];
   if (r.status === 503) return "המערכת עוד לא הוגדרה. צריך לחבר מסד נתונים ומפתח אבטחה.";
   return "משהו השתבש. אפשר לנסות שוב.";

@@ -4,6 +4,7 @@ import { cache } from "react";
 import { authConfigured, getAuth } from "./auth";
 import { prisma } from "./db";
 import { rolePermissions, type Permission } from "./permissions";
+import { isSystemAdminRole, signInLocked } from "./settings";
 
 export type CurrentUser = {
   id: string;
@@ -31,6 +32,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   if (!session) return null;
   const u = await prisma.user.findUnique({ where: { id: session.user.id }, include: { role: true } });
   if (!u || !u.active || u.deletedAt) return null;
+  if (!isSystemAdminRole(u.role) && (await signInLocked())) return null;
   return {
     id: u.id,
     name: u.name,
