@@ -130,8 +130,8 @@ async function ManagerHome({ days }: { days: number }) {
       <div className="alerts-row">
         {unassigned.length > 0 && (
           <a className="achip red" href="#night">
-            <Icon name="moon" />
-            {unassigned.length === 1 ? "ליד אחד מהלילה עוד לא שויך" : `${unassigned.length} לידים מהלילה עוד לא שויכו`}
+            <Icon name="users" />
+            {unassigned.length === 1 ? "ליד חדש אחד עוד לא שויך" : `${unassigned.length} לידים חדשים עוד לא שויכו`}
           </a>
         )}
         {d.stale > 0 && (
@@ -156,7 +156,7 @@ async function ManagerHome({ days }: { days: number }) {
       <div className="grid-2 wide" style={{ marginTop: 0 }}>
         <div className="panel" id="night">
           <div className="panel-head">
-            <h2>לידים מהלילה</h2>
+            <h2>לידים חדשים</h2>
             <span className="muted">מאז {dayLabel(night)} 19:00</span>
           </div>
           {d.overnight.length ? (
@@ -170,7 +170,7 @@ async function ManagerHome({ days }: { days: number }) {
               ))}
             </ul>
           ) : (
-            <p className="empty">לא נכנסו לידים בלילה.</p>
+            <p className="empty">לא נכנסו לידים חדשים.</p>
           )}
           {canAssign && <AutoAssignAll leadIds={unassigned.map((l) => l.id)} />}
         </div>
