@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { run, type ActionResult } from "@/lib/action";
 import { audit } from "@/lib/audit";
-import { isLeadStatus, isMeetingStatus, MANUAL_SOURCES, PLACES, REASONS } from "@/lib/crm/constants";
+import { isLeadStatus, isMeetingStatus, MANUAL_SOURCES, meetingClient, PLACES, REASONS } from "@/lib/crm/constants";
 import { LATER, laterDate, laterLabel, type LaterKey } from "@/lib/crm/dates";
 import * as crm from "@/lib/crm/service";
 import { prisma } from "@/lib/db";
@@ -28,9 +28,9 @@ async function leadFor(u: CurrentUser, leadId: string) {
 async function meetingFor(u: CurrentUser, meetingId: string) {
   const m = await prisma.meeting.findUnique({ where: { id: String(meetingId) }, include: { lead: true } });
   if (!m) throw new ActionError("הפגישה לא נמצאה");
-  const mine = m.setById === u.id || m.hostId === u.id || m.lead.ownerId === u.id;
+  const mine = m.setById === u.id || m.hostId === u.id || m.lead?.ownerId === u.id;
   if (!mine && !can(u, "meetings.manage_all")) throw new ActionError("אפשר לעדכן רק פגישות שלך");
-  if (!can(u, "leads.view_all") && m.lead.ownerId !== u.id && !mine) throw new ActionError("אין לך גישה לפגישה הזו");
+  if (!can(u, "leads.view_all") && !mine) throw new ActionError("אין לך גישה לפגישה הזו");
   return m;
 }
 
@@ -152,7 +152,7 @@ export async function confirmMeetingAction(meetingId: string, confirmed: boolean
     const m = await meetingFor(u, meetingId);
     const { undoId } = await withUndo(u.id, confirmed ? "אישור הגעה" : "ביטול אישור הגעה", (tx, rec) => crm.confirmMeeting(tx, rec, m.id, by(u), confirmed));
     refresh();
-    return { message: confirmed ? `סומן: ההגעה של ${m.lead.name.split(/\s+/)[0]} אושרה` : "אישור ההגעה בוטל", undoId };
+    return { message: confirmed ? (m.lead || m.clientName ? `סומן: ההגעה של ${meetingClient(m).split(/\s+/)[0]} אושרה` : "סומן: ההגעה אושרה") : "אישור ההגעה בוטל", undoId };
   });
 }
 
@@ -294,7 +294,11 @@ export async function deleteLeadAction(leadId: string): Promise<ActionResult> {
   return run(async () => {
     const u = await requireActionUser("leads.delete");
     const lead = await leadFor(u, leadId);
-    await prisma.lead.delete({ where: { id: lead.id } });
+    // its meetings stay in the meetings list, under the client's name
+    await prisma.$transaction([
+      prisma.meeting.updateMany({ where: { leadId: lead.id, clientName: null }, data: { clientName: lead.name } }),
+      prisma.lead.delete({ where: { id: lead.id } }),
+    ]);
     await audit({ actorId: u.id, actorName: u.name, action: "lead.delete", targetType: "lead", targetId: lead.id, targetName: lead.name, ip: await requestIp() });
     refresh();
     return { message: `הליד ${lead.name} נמחק` };

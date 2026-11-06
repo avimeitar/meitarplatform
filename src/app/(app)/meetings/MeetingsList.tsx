@@ -8,7 +8,7 @@ import { useRunner } from "@/components/ui/useRunner";
 import { MS, type MeetingStatus } from "@/lib/crm/constants";
 import { dayFull, fT, iso } from "@/lib/crm/dates";
 
-export type MeetingRowData = { id: string; leadId: string; leadName: string; phoneRaw: string; projectName: string; startAt: string; place: string; status: string; confirmed: boolean; setByName: string | null; hostName: string | null; canEdit: boolean };
+export type MeetingRowData = { id: string; leadId: string | null; leadName: string; phoneRaw: string; projectName: string; subject: string; startAt: string; place: string; status: string; confirmed: boolean; setByName: string | null; hostName: string | null; canEdit: boolean };
 
 export function NewMeetingButton() {
   const sheets = useLeadSheets();
@@ -42,7 +42,7 @@ export function MeetingsList({ rows }: { rows: MeetingRowData[] }) {
         <thead>
           <tr>
             <th>שעה</th>
-            <th>ליד</th>
+            <th>לקוח</th>
             <th>פרויקט</th>
             <th>מקום</th>
             <th>מי קבע</th>
@@ -62,13 +62,13 @@ export function MeetingsList({ rows }: { rows: MeetingRowData[] }) {
               </td>
             </tr>,
             ...g.list.map((m) => (
-              <tr key={m.id}>
+              <tr key={m.id} className={m.hostName ? undefined : "no-host"}>
                 <td className="c-time">{fT(new Date(m.startAt))}</td>
                 <td className="c-lead">
-                  <LeadLink id={m.leadId} name={m.leadName} sub={[m.projectName, m.place].filter(Boolean).join(", ")} />
+                  <LeadLink id={m.leadId} name={m.leadName} sub={[m.projectName, m.subject && m.subject !== m.projectName ? m.subject : "", m.place].filter(Boolean).join(", ")} />
                 </td>
                 <td className="c-proj">{m.projectName}</td>
-                <td className="c-place">{m.place}</td>
+                <td className="c-place">{m.place || <span className="muted">—</span>}</td>
                 <td className="c-set">
                   <Owner name={m.setByName} />
                 </td>

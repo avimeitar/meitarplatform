@@ -2,7 +2,7 @@
 import type { Tx } from "@/lib/db";
 import { prisma } from "@/lib/db";
 import type { Recorder } from "@/lib/undo";
-import { ST, type LeadStatus, type MeetingStatus } from "./constants";
+import { meetingClient, MS, ST, type LeadStatus, type MeetingStatus } from "./constants";
 import { HOUR, WD, addDays, at, fD, fT, nextWorkday, relTime, sameDay, sod } from "./dates";
 
 type By = { id: string; name: string };
@@ -193,6 +193,7 @@ export async function moveMeeting(tx: Tx, rec: Recorder, meetingId: string, by: 
   const m = await tx.meeting.findUniqueOrThrow({ where: { id: meetingId } });
   await rec.before("meeting", meetingId, ["startAt", "status", "confirmed"]);
   await tx.meeting.update({ where: { id: meetingId }, data: { startAt: start, status: "set", confirmed: false } });
+  if (!m.leadId) return; // a meeting without a lead has no card to update
   await addActivity(tx, rec, m.leadId, { kind: "meeting", text: `הפגישה הועברה ל${meetingWhen(start)}`, userId: by.id });
   await setLead(tx, rec, m.leadId, { nextAt: start });
   await setLeadStatus(tx, rec, m.leadId, "meet", by.id, { auto: "עודכן אוטומטית מהפגישה" });
@@ -203,41 +204,43 @@ export async function confirmMeeting(tx: Tx, rec: Recorder, meetingId: string, b
   if (m.confirmed === confirmed) return;
   await rec.before("meeting", meetingId, ["confirmed"]);
   await tx.meeting.update({ where: { id: meetingId }, data: { confirmed } });
-  await addActivity(tx, rec, m.leadId, { kind: "meeting", text: confirmed ? `הלקוח אישר הגעה לפגישה של ${meetingWhen(m.startAt)}` : "אישור ההגעה בוטל", userId: by.id });
+  if (m.leadId) await addActivity(tx, rec, m.leadId, { kind: "meeting", text: confirmed ? `הלקוח אישר הגעה לפגישה של ${meetingWhen(m.startAt)}` : "אישור ההגעה בוטל", userId: by.id });
 }
 
-/** Changes a meeting's status and keeps the lead in step: held → "התקיימה פגישה", cancelled → "לתאם מחדש" with a task. */
+/** Changes a meeting's status and keeps its lead, if it has one, in step: held → "התקיימה פגישה", cancelled → "לתאם מחדש" with a task. */
 export async function setMeetingStatus(tx: Tx, rec: Recorder, meetingId: string, st: MeetingStatus, by: By): Promise<string> {
   const m = await tx.meeting.findUniqueOrThrow({ where: { id: meetingId }, include: { lead: true } });
   if (m.status === st) return "";
   await rec.before("meeting", meetingId, ["status", "confirmed"]);
   await tx.meeting.update({ where: { id: meetingId }, data: { status: st, confirmed: st === "set" ? m.confirmed : false } });
+  const first = meetingClient(m).split(/\s+/)[0];
+  if (!m.leadId || !m.lead) return (m.clientName ? `הפגישה עם ${first}` : "הפגישה") + ` סומנה ״${MS[st].l}״`;
+  const lead = m.lead;
   const word = st === "held" ? "התקיימה" : st === "cancel" ? "בוטלה" : "תואמה מחדש";
-  await addActivity(tx, rec, m.leadId, { kind: "meeting", text: `הפגישה של ${meetingWhen(m.startAt)} ${word}`, userId: by.id });
+  await addActivity(tx, rec, lead.id, { kind: "meeting", text: `הפגישה של ${meetingWhen(m.startAt)} ${word}`, userId: by.id });
   if (st !== "cancel") {
     // a cancel that is reversed by hand must not leave its "reschedule" task behind
-    const auto = await tx.task.findMany({ where: { leadId: m.leadId, auto: "resched", done: false } });
+    const auto = await tx.task.findMany({ where: { leadId: lead.id, auto: "resched", done: false } });
     for (const t of auto) {
       await rec.before("task", t.id, ["done", "doneAt", "voided"]);
       await tx.task.update({ where: { id: t.id }, data: { done: true, doneAt: new Date(), voided: true } });
     }
   }
-  const first = m.lead.name.split(/\s+/)[0];
   if (st === "held") {
-    await setLeadStatus(tx, rec, m.leadId, "held", by.id, { auto: "עודכן אוטומטית מהפגישה" });
+    await setLeadStatus(tx, rec, lead.id, "held", by.id, { auto: "עודכן אוטומטית מהפגישה" });
     let d = addDays(sod(new Date()), 3);
     while (d.getDay() === 5 || d.getDay() === 6) d = addDays(d, 1);
-    await addTask(tx, rec, { leadId: m.leadId, userId: m.lead.ownerId ?? m.setById ?? by.id, title: `שיחת המשך עם ${m.lead.name} אחרי הפגישה`, dueAt: at(d, 10), auto: "follow", createdById: by.id });
+    await addTask(tx, rec, { leadId: lead.id, userId: lead.ownerId ?? m.setById ?? by.id, title: `שיחת המשך עם ${lead.name} אחרי הפגישה`, dueAt: at(d, 10), auto: "follow", createdById: by.id });
     return `הפגישה עם ${first} סומנה ״התקיימה״. נוספה שיחת המשך בעוד 3 ימים`;
   }
   if (st === "set") {
-    await setLeadStatus(tx, rec, m.leadId, "meet", by.id, { auto: "עודכן אוטומטית מהפגישה" });
+    await setLeadStatus(tx, rec, lead.id, "meet", by.id, { auto: "עודכן אוטומטית מהפגישה" });
     return `הפגישה עם ${first} חזרה ל״תואמה״`;
   }
-  const other = await tx.meeting.count({ where: { leadId: m.leadId, id: { not: m.id }, status: "set", startAt: { gte: new Date() } } });
+  const other = await tx.meeting.count({ where: { leadId: lead.id, id: { not: m.id }, status: "set", startAt: { gte: new Date() } } });
   if (!other) {
-    await setLeadStatus(tx, rec, m.leadId, "resched", by.id, { auto: "עודכן אוטומטית מהפגישה" });
-    await addTask(tx, rec, { leadId: m.leadId, userId: m.lead.ownerId ?? m.setById ?? by.id, title: `לתאם מחדש פגישה עם ${m.lead.name}`, dueAt: at(nextWorkday(), 10), auto: "resched", createdById: by.id });
+    await setLeadStatus(tx, rec, lead.id, "resched", by.id, { auto: "עודכן אוטומטית מהפגישה" });
+    await addTask(tx, rec, { leadId: lead.id, userId: lead.ownerId ?? m.setById ?? by.id, title: `לתאם מחדש פגישה עם ${lead.name}`, dueAt: at(nextWorkday(), 10), auto: "resched", createdById: by.id });
     return `הפגישה עם ${first} בוטלה. הליד עבר ל״לתאם מחדש״ ונוצרה משימה`;
   }
   return `הפגישה עם ${first} בוטלה`;
@@ -270,7 +273,7 @@ export async function buildQueue(userId: string, now = new Date()): Promise<Queu
       select: { id: true, status: true, nextAt: true },
     }),
     prisma.meeting.findMany({
-      where: { setById: userId, status: "set", confirmed: false, startAt: { gte: sod(next), lt: addDays(sod(next), 1) } },
+      where: { setById: userId, status: "set", confirmed: false, leadId: { not: null }, startAt: { gte: sod(next), lt: addDays(sod(next), 1) } },
       orderBy: { startAt: "asc" },
       select: { id: true, leadId: true, startAt: true },
     }),
@@ -291,7 +294,7 @@ export async function buildQueue(userId: string, now = new Date()): Promise<Queu
   }
   const nextWord = sameDay(next, addDays(sod(now), 1)) ? "מחר" : "ב" + WD[next.getDay()];
   for (const m of meetings) {
-    if (seen.has(m.leadId)) continue;
+    if (!m.leadId || seen.has(m.leadId)) continue;
     seen.add(m.leadId);
     q.push({ leadId: m.leadId, why: `לאשר הגעה לפגישה ${nextWord} ב-${fT(m.startAt)}`, late: false, meetingId: m.id });
   }

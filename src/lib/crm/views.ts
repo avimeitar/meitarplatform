@@ -3,12 +3,13 @@ import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { formatPhone } from "@/lib/phone";
 import { can, type CurrentUser } from "@/lib/session";
+import { meetingClient } from "./constants";
 import { addDays, monthStart, nextWorkday, nightStart, sod, weekStart } from "./dates";
 import { buildQueue } from "./service";
 
 const RECENT_DONE_MS = 15 * 60_000;
 
-export type AgendaItem = { id: string; leadId: string; leadName: string; projectName: string; startAt: string; place: string; status: string; confirmed: boolean; hostName: string | null };
+export type AgendaItem = { id: string; leadId: string | null; leadName: string; projectName: string; startAt: string; place: string; status: string; confirmed: boolean; hostName: string | null };
 export type TaskRow = { id: string; title: string; dueAt: string; done: boolean; leadId: string | null; leadName: string | null; userName: string | null };
 export type QueueRow = { leadId: string; name: string; phone: string; phoneRaw: string; status: string; projectName: string; source: string; why: string; late: boolean; meetingId?: string; lastWa: string | null; attempts: number };
 
@@ -33,7 +34,7 @@ export async function agendaFor(where: Prisma.MeetingWhereInput, now = new Date(
     orderBy: { startAt: "asc" },
     include: { lead: { select: { name: true } }, project: { select: { name: true } }, host: { select: { name: true } } },
   });
-  return rows.map((m) => ({ id: m.id, leadId: m.leadId, leadName: m.lead.name, projectName: m.project?.name ?? "", startAt: m.startAt.toISOString(), place: m.place, status: m.status, confirmed: m.confirmed, hostName: m.host?.name ?? null }));
+  return rows.map((m) => ({ id: m.id, leadId: m.leadId, leadName: meetingClient(m), projectName: m.project?.name ?? "", startAt: m.startAt.toISOString(), place: m.place, status: m.status, confirmed: m.confirmed, hostName: m.host?.name ?? null }));
 }
 
 export async function queueRows(userId: string): Promise<QueueRow[]> {

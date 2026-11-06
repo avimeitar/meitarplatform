@@ -1,11 +1,15 @@
 import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
+import { Icon } from "@/components/Icon";
+import { meetingClient } from "@/lib/crm/constants";
 import { addDays, dayLabel, nextWorkday, sod, weekStart } from "@/lib/crm/dates";
 import { prisma } from "@/lib/db";
 import { can, requirePageUser } from "@/lib/session";
 import { MeetingsList, NewMeetingButton, type MeetingRowData } from "./MeetingsList";
 
 export const metadata = { title: "פגישות" };
+
+const STEP = 100;
 
 export default async function MeetingsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const u = await requirePageUser();
@@ -24,16 +28,24 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
   ];
   const range = RANGES.find((r) => r[0] === sp.range) ?? RANGES.find((r) => r[0] === "upcoming")!;
   const who = sp.who === "all" || (manager && sp.who !== "mine") ? "all" : "mine";
+  const q = (sp.q ?? "").trim().slice(0, 60);
+  const limit = Math.min(2000, Math.max(STEP, Number(sp.limit) || STEP));
   const mineWhere: Prisma.MeetingWhereInput = { OR: [{ setById: u.id }, { hostId: u.id }, { lead: { ownerId: u.id } }] };
   const scope: Prisma.MeetingWhereInput = can(u, "leads.view_all") ? {} : mineWhere;
-  const where: Prisma.MeetingWhereInput = { AND: [scope, range[2], who === "mine" ? mineWhere : {}, sp.status ? { status: sp.status } : {}] };
-  const asc = range[0] !== "past";
-  const rows = await prisma.meeting.findMany({
-    where,
-    orderBy: { startAt: asc ? "asc" : "desc" },
-    take: 200,
-    include: { lead: { select: { id: true, name: true, phone: true, ownerId: true } }, project: { select: { name: true } }, setBy: { select: { name: true } }, host: { select: { name: true } } },
-  });
+  // a search looks through every meeting this person may see, at any date
+  const where: Prisma.MeetingWhereInput = q
+    ? { AND: [scope, { OR: [{ clientName: { contains: q, mode: "insensitive" } }, { lead: { name: { contains: q, mode: "insensitive" } } }, { subject: { contains: q, mode: "insensitive" } }] }] }
+    : { AND: [scope, range[2], who === "mine" ? mineWhere : {}, sp.status ? { status: sp.status } : {}] };
+  const asc = !q && range[0] !== "past";
+  const [rows, total] = await Promise.all([
+    prisma.meeting.findMany({
+      where,
+      orderBy: { startAt: asc ? "asc" : "desc" },
+      take: limit,
+      include: { lead: { select: { id: true, name: true, phone: true, ownerId: true } }, project: { select: { name: true } }, setBy: { select: { name: true } }, host: { select: { name: true } } },
+    }),
+    prisma.meeting.count({ where }),
+  ]);
   let kpis: { upcoming: number; held: number; cancel: number } | null = null;
   if (manager) {
     const since = addDays(today, -29);
@@ -47,28 +59,31 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
   const data: MeetingRowData[] = rows.map((m) => ({
     id: m.id,
     leadId: m.leadId,
-    leadName: m.lead.name,
-    phoneRaw: m.lead.phone,
+    leadName: meetingClient(m),
+    phoneRaw: m.lead?.phone ?? "",
     projectName: m.project?.name ?? "",
+    subject: m.subject ?? "",
     startAt: m.startAt.toISOString(),
     place: m.place,
     status: m.status,
     confirmed: m.confirmed,
-    setByName: m.setBy?.name ?? null,
+    setByName: m.setBy?.name ?? m.repName ?? null,
     hostName: m.host?.name ?? null,
-    canEdit: can(u, "leads.edit") && (m.setById === u.id || m.hostId === u.id || m.lead.ownerId === u.id || can(u, "meetings.manage_all")),
+    canEdit: can(u, "leads.edit") && (m.setById === u.id || m.hostId === u.id || m.lead?.ownerId === u.id || can(u, "meetings.manage_all")),
   }));
   const href = (extra: Record<string, string>) => `/meetings?${new URLSearchParams({ range: range[0], who, ...extra })}`;
   return (
     <section>
       <div className="page-head">
         <div>
-          <h1>פגישות</h1>
-          <p className="sub">אחרי כל פגישה מסמנים מה קרה: התקיימה או בוטלה. הליד מתעדכן לבד.</p>
+          <h1>
+            פגישות {q ? <span className="count-lg">{total}</span> : null}
+          </h1>
+          <p className="sub">אחרי כל פגישה מסמנים מה קרה: התקיימה או בוטלה. אם הפגישה שייכת לליד, הוא מתעדכן לבד.</p>
         </div>
         <div className="head-actions">{can(u, "leads.edit") && <NewMeetingButton />}</div>
       </div>
-      {kpis && (
+      {kpis && !q && (
         <div className="kpis">
           <div className="kpi">
             <span>תואמו קדימה</span>
@@ -89,14 +104,16 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
         </div>
       )}
       <div className="toolbar">
-        <div className="seg" role="group" aria-label="מתי">
-          {RANGES.map(([k, label]) => (
-            <Link key={k} className={k === range[0] ? "on" : ""} href={href({ range: k })}>
-              {label}
-            </Link>
-          ))}
-        </div>
-        {can(u, "leads.view_all") && (
+        {!q && (
+          <div className="seg" role="group" aria-label="מתי">
+            {RANGES.map(([k, label]) => (
+              <Link key={k} className={k === range[0] ? "on" : ""} href={href({ range: k })}>
+                {label}
+              </Link>
+            ))}
+          </div>
+        )}
+        {!q && can(u, "leads.view_all") && (
           <div className="seg" role="group" aria-label="של מי">
             <Link className={who === "mine" ? "on" : ""} href={href({ who: "mine" })}>
               שלי
@@ -106,8 +123,26 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
             </Link>
           </div>
         )}
+        {q ? (
+          <Link className="filter on" href={href({})}>
+            חיפוש: {q} <Icon name="x" />
+          </Link>
+        ) : (
+          <form className="search msearch" role="search" action="/meetings">
+            <Icon name="search" />
+            <input type="search" name="q" placeholder="חיפוש פגישה לפי שם או נושא" aria-label="חיפוש פגישות" />
+          </form>
+        )}
       </div>
+      {q && <p className="search-note">{total ? `חיפשנו בכל הפגישות: ${total === 1 ? "נמצאה פגישה אחת" : `נמצאו ${total} פגישות`}` : ""}</p>}
       <MeetingsList rows={data} />
+      {total > rows.length && (
+        <div className="more-row">
+          <Link className="btn sm" href={href({ limit: String(limit + STEP), ...(q ? { q } : {}) })} scroll={false}>
+            הצגת עוד {Math.min(STEP, total - rows.length)} מתוך {total - rows.length}
+          </Link>
+        </div>
+      )}
     </section>
   );
 }

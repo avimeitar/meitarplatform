@@ -191,7 +191,7 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
               {confirmDelete ? (
                 <>
                   <p className="confirm-q">למחוק את {lead.name}?</p>
-                  <p className="muted">הליד, ההיסטוריה, הפגישות והמשימות שלו יימחקו. אי אפשר לבטל.</p>
+                  <p className="muted">הליד, ההיסטוריה והמשימות שלו יימחקו. הפגישות שלו יישארו ברשימת הפגישות. אי אפשר לבטל.</p>
                   <div className="row-end">
                     <button type="button" className="btn ghost" onClick={() => setConfirmDelete(false)}>
                       לא

@@ -25,6 +25,11 @@ export const MS = {
 export type MeetingStatus = keyof typeof MS;
 export const isMeetingStatus = (s: string): s is MeetingStatus => s === "set" || s === "cancel" || s === "held";
 
+/** Who a meeting is with: its lead, or the name kept on the meeting itself (imported history, or a lead that was deleted). */
+export function meetingClient(m: { lead?: { name: string } | null; clientName?: string | null }): string {
+  return m.lead?.name ?? m.clientName ?? "ללא שם";
+}
+
 export const REASONS = ["מכחיש פנייה", "לא מעוניין", "אין תקציב", "מספר לא תקין", "רכש במקום אחר", "אחר"];
 
 export const PLACES = [

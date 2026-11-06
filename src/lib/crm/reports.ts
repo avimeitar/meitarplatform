@@ -92,10 +92,10 @@ export async function projectBreakdown(projectId: string, now = new Date()): Pro
     prisma.lead.groupBy({ by: ["ownerId", "source"], where: { ...where, createdAt: { gte: monthStart(now) } }, _count: { _all: true } }),
     prisma.lead.groupBy({ by: ["ownerId", "source"], where: { ...where, ...DEAL }, _count: { _all: true } }),
     // held meetings of one project in 30 days: a short list, counted by the lead's owner and source below
-    prisma.meeting.findMany({ where: { projectId, status: "held", startAt: last30(now) }, select: { lead: { select: { ownerId: true, source: true } } } }),
+    prisma.meeting.findMany({ where: { projectId, status: "held", startAt: last30(now) }, select: { setById: true, source: true, lead: { select: { ownerId: true, source: true } } } }),
   ]);
   // a held meeting can belong to a lead that has since moved to another project, so its owner counts too
-  const ownerIds = [...new Set([...leads.map((r) => r.ownerId), ...held.map((m) => m.lead.ownerId)].filter((x): x is string => !!x))];
+  const ownerIds = [...new Set([...leads.map((r) => r.ownerId), ...held.map((m) => (m.lead ? m.lead.ownerId : m.setById))].filter((x): x is string => !!x))];
   const people = await prisma.user.findMany({ where: { id: { in: ownerIds } }, select: { id: true, name: true, active: true, deletedAt: true } });
   const person = new Map(people.map((u) => [u.id, u]));
 
@@ -125,8 +125,9 @@ export async function projectBreakdown(projectId: string, now = new Date()): Pro
   add(newThisMonth, "newThisMonth");
   add(deals, "deals");
   for (const m of held) {
-    ownerRow(m.lead.ownerId).meetingsHeld++;
-    sourceRow(m.lead.source).meetingsHeld++;
+    // a meeting without a lead counts for whoever set it
+    ownerRow(m.lead ? m.lead.ownerId : m.setById).meetingsHeld++;
+    sourceRow(m.lead?.source ?? m.source ?? "לא ידוע").meetingsHeld++;
   }
   return { byOwner: rows(byOwner.values()), bySource: rows(bySource.values()) };
 }

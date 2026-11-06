@@ -60,6 +60,23 @@ d("CRM rules on a real database", () => {
     expect((await prisma.lead.findUniqueOrThrow({ where: { id: leadId } })).status).toBe("meet");
   });
 
+  it("a meeting stands on its own: it works without a lead, and stays when its lead is deleted", async () => {
+    const start = new Date(Date.now() + 3 * 86400_000);
+    const alone = await prisma.meeting.create({ data: { clientName: "לקוח מפיירברי", subject: "אתונה", startAt: start, place: "", status: "set", setById: by.id } });
+    const { result: msg } = await undo.withUndo(by.id, "held", (tx, rec) => crm.setMeetingStatus(tx, rec, alone.id, "held", by));
+    expect(msg).toContain("לקוח");
+    expect((await prisma.meeting.findUniqueOrThrow({ where: { id: alone.id } })).status).toBe("held");
+    await undo.withUndo(by.id, "move", (tx, rec) => crm.moveMeeting(tx, rec, alone.id, by, new Date(start.getTime() + 3600_000)));
+    await undo.withUndo(by.id, "confirm", (tx, rec) => crm.confirmMeeting(tx, rec, alone.id, by, true));
+    expect((await prisma.meeting.findUniqueOrThrow({ where: { id: alone.id } })).confirmed).toBe(true);
+
+    const { leadId } = await newLead("+972500000109");
+    const { result: m } = await undo.withUndo(by.id, "book", (tx, rec) => crm.bookMeeting(tx, rec, leadId, by, { start, place: "זום", direct: true }));
+    await prisma.lead.delete({ where: { id: leadId } });
+    const kept = await prisma.meeting.findUniqueOrThrow({ where: { id: m.id } });
+    expect(kept.leadId).toBe(null);
+  });
+
   it("undo puts everything back: the meeting, the status and the timeline", async () => {
     const { leadId } = await newLead("+972500000104");
     const before = await prisma.lead.findUniqueOrThrow({ where: { id: leadId }, include: { _count: { select: { activities: true } } } });

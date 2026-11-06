@@ -246,10 +246,18 @@ model Activity {
   @@index([leadId, createdAt])
 }
 
+// A meeting stands on its own. Most are booked from a lead, but a meeting can exist without one
+// (for example the history imported from Fireberry, which carries only the client's name),
+// and it stays when its lead is deleted.
 model Meeting {
-  id        String   @id @default(cuid())
-  leadId    String
-  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  leadId     String?
+  lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  clientName String? // who the meeting is with when there is no lead
+  subject    String? // what it is about, e.g. "אתונה" (Fireberry: נושא)
+  source     String? // how the client arrived (Fireberry: מקור הגעה)
+  repName    String? // the rep's name in Fireberry, kept when that rep has no user here
+  externalId String?  @unique // imported meetings: the same one is never imported twice
   projectId String?
   project   Project? @relation(fields: [projectId], references: [id])
   startAt   DateTime
@@ -266,6 +274,7 @@ model Meeting {
 
   @@index([startAt])
   @@index([leadId])
+  @@index([status, startAt])
 }
 
 model Task {

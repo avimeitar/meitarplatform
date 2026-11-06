@@ -37,11 +37,18 @@ export function Owner({ name }: { name: string | null }) {
   );
 }
 
-export function LeadLink({ id, name, sub }: { id: string; name: string; sub?: React.ReactNode }) {
-  return (
-    <Link className="lk" href={`/leads/${id}`}>
+/** The lead's name linking to its card. A meeting without a lead shows the client's name without a link. */
+export function LeadLink({ id, name, sub }: { id: string | null; name: string; sub?: React.ReactNode }) {
+  const body = (
+    <>
       <b>{name}</b>
       {sub ? <small>{sub}</small> : null}
+    </>
+  );
+  if (!id) return <span className="lk plain">{body}</span>;
+  return (
+    <Link className="lk" href={`/leads/${id}`}>
+      {body}
     </Link>
   );
 }
