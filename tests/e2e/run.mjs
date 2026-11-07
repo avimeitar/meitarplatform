@@ -139,6 +139,15 @@ try {
   ok("a signed deal asks first", (await p.locator(".drawer h2").textContent()).includes("לסמן"));
   await p.click('.drawer button:has-text("עוד לא")');
   await p.goto(`${BASE}/meetings`);
+  ok("meetings open as a calendar", (await p.locator(".cal").count()) === 1);
+  const ev = p.locator(".cal-col.sel .ev, .mev").first();
+  if (await ev.count()) {
+    await ev.click();
+    await p.waitForSelector(".drawer .mdetail", { timeout: 10000 }).catch(() => {});
+    ok("a meeting on the calendar opens its details", (await p.locator(".drawer .mdetail .md-kv").count()) === 1);
+    await p.keyboard.press("Escape");
+  }
+  await p.goto(`${BASE}/meetings?view=list`);
   const setRow = p.locator('.mtable tbody tr:has(.mseg button.on.m-set)').first();
   if (await setRow.count()) {
     await setRow.locator('.mseg button:has-text("התקיימה")').click();

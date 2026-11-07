@@ -147,12 +147,41 @@ export function OutcomeSheet({ lead, meetingId, onDone }: { lead: SheetLead; mee
 
 // ---------------------------------------------------------------- booking a meeting
 
-export function BookingStep({ lead, meetingId, direct, onBack, onDone }: { lead: SheetLead; meetingId?: string; direct: boolean; onBack?: () => void; onDone?: Done }) {
+export function BookingStep({
+  lead,
+  meetingId,
+  direct,
+  onBack,
+  onDone,
+  initialDay,
+  initialTime,
+}: {
+  lead: SheetLead;
+  meetingId?: string;
+  direct: boolean;
+  onBack?: () => void;
+  onDone?: Done;
+  /** a day and time picked on the calendar ("2026-11-12", "10:30") */
+  initialDay?: string;
+  initialTime?: string;
+}) {
   const { finish, busy } = useFinish(onDone);
-  const days = useMemo(() => meetDays(), []);
-  const [day, setDay] = useState<string | null>(null);
-  const [time, setTime] = useState<string | null>(null);
-  const [other, setOther] = useState(false);
+  const days = useMemo(() => {
+    const list = meetDays();
+    // a day further out, picked on the calendar, joins the choices
+    const m = initialDay ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(initialDay) : null;
+    if (m && !list.some((x) => dayKey(x) === initialDay)) {
+      const extra = new Date(+m[1], +m[2] - 1, +m[3]);
+      if (extra.getDay() !== 6 && extra >= sod(new Date())) list.push(extra);
+      list.sort((a, b) => a.getTime() - b.getTime());
+    }
+    return list;
+  }, [initialDay]);
+  const start = initialDay && days.some((x) => dayKey(x) === initialDay) ? initialDay : null;
+  const startSlots = start ? slotsFor(days.find((x) => dayKey(x) === start) as Date) : [];
+  const [day, setDay] = useState<string | null>(start);
+  const [time, setTime] = useState<string | null>(start && initialTime ? initialTime : null);
+  const [other, setOther] = useState(!!(start && initialTime && !startSlots.includes(initialTime)));
   const [place, setPlace] = useState(PLACES[0].value);
   const d = day ? days.find((x) => dayKey(x) === day) ?? null : null;
   const times = d ? slotsFor(d) : [];
@@ -232,8 +261,8 @@ export function BookingStep({ lead, meetingId, direct, onBack, onDone }: { lead:
   );
 }
 
-/** "+ פגישה חדשה" without a lead yet: first find the person, then book. */
-export function NewMeetingSheet({ onDone }: { onDone?: Done }) {
+/** "+ פגישה חדשה" without a lead yet: first find the person, then book (on the day and time picked on the calendar, if any). */
+export function NewMeetingSheet({ onDone, initialDay, initialTime }: { onDone?: Done; initialDay?: string; initialTime?: string }) {
   const drawer = useDrawer();
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<{ id: string; name: string; phone: string; projectName: string }[]>([]);
@@ -262,7 +291,7 @@ export function NewMeetingSheet({ onDone }: { onDone?: Done }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead]);
 
-  if (lead) return <BookingStep lead={lead} direct onBack={() => setLead(null)} onDone={onDone} />;
+  if (lead) return <BookingStep lead={lead} direct onBack={() => setLead(null)} onDone={onDone} initialDay={initialDay} initialTime={initialTime} />;
   return (
     <div className="sheet-body">
       <label className="fld">
@@ -368,7 +397,7 @@ export function useLeadSheets() {
       drawer.open({ title: opts.meetingId ? `מה התשובה של ${firstName(lead.name)} לגבי הפגישה?` : `מה קרה בשיחה עם ${firstName(lead.name)}?`, content: <OutcomeSheet lead={lead} meetingId={opts.meetingId} onDone={opts.onDone} />, sheet: true }),
     book: (lead: SheetLead, opts: { meetingId?: string; onDone?: Done } = {}) =>
       drawer.open({ title: opts.meetingId ? "מה המועד החדש לפגישה?" : `מתי הפגישה עם ${firstName(lead.name)}?`, content: <BookingStep lead={lead} meetingId={opts.meetingId} direct onDone={opts.onDone} />, sheet: true }),
-    newMeeting: () => drawer.open({ title: "עם מי הפגישה?", content: <NewMeetingSheet />, sheet: true }),
+    newMeeting: (opts: { day?: string; time?: string } = {}) => drawer.open({ title: "עם מי הפגישה?", content: <NewMeetingSheet initialDay={opts.day} initialTime={opts.time} />, sheet: true }),
     wa: (lead: SheetLead, onDone?: Done) => drawer.open({ title: `איזו הודעה לשלוח ל${firstName(lead.name)}?`, content: <WaSheet lead={lead} onDone={onDone} />, sheet: true }),
     won: (lead: SheetLead) => drawer.open({ title: "לסמן שנחתמה עסקה?", content: <WonConfirm lead={lead} />, sheet: true }),
   };
