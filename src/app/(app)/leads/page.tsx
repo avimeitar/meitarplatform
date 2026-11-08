@@ -2,7 +2,8 @@ import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
 import { Icon } from "@/components/Icon";
 import { ST, ST_ORDER, MANUAL_SOURCES } from "@/lib/crm/constants";
-import { leadsQuery, VIEWS } from "@/lib/crm/leadViews";
+import { fD } from "@/lib/crm/dates";
+import { createdRange, leadsQuery, VIEWS } from "@/lib/crm/leadViews";
 import { prisma } from "@/lib/db";
 import { formatPhone } from "@/lib/phone";
 import { can, requirePageUser } from "@/lib/session";
@@ -41,11 +42,14 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
   const keep = (extra: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
-    const merged = { view: view.key, project: sp.project, source: sp.source, status: sp.status, owner: sp.owner, filters: sp.filters, ...extra };
+    const merged = { view: view.key, project: sp.project, source: sp.source, status: sp.status, owner: sp.owner, from: sp.from, to: sp.to, filters: sp.filters, ...extra };
     for (const [k, v] of Object.entries(merged)) if (v) p.set(k, v);
     return `/leads?${p.toString()}`;
   };
   const fcount = [sp.project, sp.source, sp.status, manager ? sp.owner : undefined].filter(Boolean).length;
+  const range = createdRange(sp);
+  const rangeText = range.from && range.to ? (range.from.getTime() === range.to.getTime() ? `ב-${fD(range.from)}` : `בין ${fD(range.from)} ל-${fD(range.to)}`) : range.from ? `מ-${fD(range.from)}` : range.to ? `עד ${fD(range.to)}` : "";
+  const sources = [...new Set([...MANUAL_SOURCES, "טאבולה", "כתבה ממומנת", ...(sp.source ? [sp.source] : [])])];
   const showFilters = manager || sp.filters === "1";
 
   return (
@@ -56,7 +60,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         </h1>
         {can(u, "leads.export") && (
           <div className="head-actions">
-            <a className="btn ghost" href={`/api/export/leads?${new URLSearchParams(Object.entries({ view: view.key, q: q || undefined, project: sp.project, source: sp.source, status: sp.status, owner: sp.owner }).filter(([, v]) => v) as [string, string][])}`}>
+            <a className="btn ghost" href={`/api/export/leads?${new URLSearchParams(Object.entries({ view: view.key, q: q || undefined, project: sp.project, source: sp.source, status: sp.status, owner: sp.owner, from: sp.from, to: sp.to }).filter(([, v]) => v) as [string, string][])}`}>
               <Icon name="upload" />
               ייצוא לאקסל
             </a>
@@ -84,6 +88,8 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           <form className="filters" action="/leads">
             <input type="hidden" name="view" value={view.key} />
             {!manager && <input type="hidden" name="filters" value="1" />}
+            {range.from && <input type="hidden" name="from" value={sp.from} />}
+            {range.to && <input type="hidden" name="to" value={sp.to} />}
             <label className="sel">
               <span className="sr">פרויקט</span>
               <select name="project" defaultValue={sp.project ?? ""}>
@@ -99,7 +105,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
               <span className="sr">מקור הגעה</span>
               <select name="source" defaultValue={sp.source ?? ""}>
                 <option value="">כל המקורות</option>
-                {[...new Set([...MANUAL_SOURCES, "טאבולה", "כתבה ממומנת"])].map((s) => (
+                {sources.map((s) => (
                   <option key={s}>{s}</option>
                 ))}
               </select>
@@ -133,6 +139,11 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
               הצגה
             </button>
           </form>
+        )}
+        {rangeText && !q && (
+          <Link className="filter on" href={keep({ from: undefined, to: undefined })} aria-label={`נכנסו ${rangeText}. הסרת הסינון לפי תאריך`}>
+            נכנסו {rangeText} <Icon name="x" />
+          </Link>
         )}
         {q && (
           <Link className="filter on" href={keep({ q: undefined })}>

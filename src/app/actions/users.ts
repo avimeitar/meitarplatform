@@ -172,6 +172,7 @@ export async function deleteUserAction(userId: string, reassignTo: string): Prom
       for (const l of leads) {
         const owner = heir ? heir.id : pick!();
         await tx.lead.update({ where: { id: l.id }, data: { ownerId: owner } });
+        if (owner) await tx.leadAssignment.create({ data: { leadId: l.id, userId: owner, byId: u.id } });
         await tx.activity.create({ data: { leadId: l.id, kind: "status", text: `הליד הועבר אחרי שהחשבון של ${target.name} נמחק`, auto: "העברה אוטומטית במחיקת משתמש", userId: u.id } });
         await tx.task.updateMany({ where: { leadId: l.id, done: false, userId: target.id }, data: { userId: owner ?? u.id } });
       }

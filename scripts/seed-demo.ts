@@ -52,6 +52,9 @@ async function main() {
     const status = age < 1 ? "new" : pick(STATUSES);
     const owner = rnd() < 0.08 ? null : pick(agents);
     const proj = pick(projects);
+    // the first call: minutes to hours after the lead came in, never in the future
+    const firstCall = new Date(Math.min(created.getTime() + (5 + Math.floor(Math.pow(rnd(), 2) * 240)) * 60_000, now.getTime()));
+    const touched = status !== "new" && owner;
     const lead = await prisma.lead.create({
       data: {
         name,
@@ -59,20 +62,39 @@ async function main() {
         source: pick(SOURCES),
         projectId: proj.id,
         status,
-        lostReason: status === "lost" ? pick(["אין עניין", "אין תקציב", "מספר לא תקין"]) : null,
+        lostReason: status === "lost" ? pick(["אין עניין", "אין תקציב", "מספר לא תקין", "הכחשת פנייה"]) : null,
         ownerId: owner?.id ?? null,
         attempts: status === "noans" ? 3 : 0,
         nextAt: ["process", "noans", "follow", "resched", "held"].includes(status) ? at(addDays(sod(now), Math.floor(rnd() * 4) - 1), 10 + Math.floor(rnd() * 7)) : null,
-        closedAt: status === "won" ? addDays(created, 10 + Math.floor(rnd() * 30)) : null,
+        closedAt: status === "won" ? new Date(Math.min(addDays(created, 10 + Math.floor(rnd() * 30)).getTime(), now.getTime())) : null,
         createdAt: created,
         lastActivityAt: created,
-        activities: { create: [{ kind: "in", text: "ליד חדש נכנס. מקור: דוגמה", createdAt: created }] },
+        activities: {
+          create: [
+            { kind: "in", text: "ליד חדש נכנס. מקור: דוגמה", createdAt: created },
+            ...(touched
+              ? [{ kind: status === "noans" ? "miss" : "call", text: status === "noans" ? "שיחה יוצאת: אין מענה (ניסיון 1)" : "שיחה יוצאת: היה מענה", userId: owner.id, createdAt: firstCall }]
+              : []),
+          ],
+        },
+        ...(owner ? { assignments: { create: { userId: owner.id, at: created } } } : {}),
       },
     });
     if (["meet", "held", "follow", "won", "resched"].includes(status)) {
       const start = status === "meet" ? at(addDays(sod(now), Math.floor(rnd() * 5)), 10 + Math.floor(rnd() * 8)) : at(addDays(sod(now), -1 - Math.floor(rnd() * 20)), 10 + Math.floor(rnd() * 8));
       await prisma.meeting.create({
-        data: { id: randomUUID(), leadId: lead.id, projectId: proj.id, startAt: start, place: "משרד, פתח תקווה", status: status === "meet" ? "set" : status === "resched" ? "cancel" : "held", setById: owner?.id ?? agents[0].id, hostId: team[2].id },
+        data: {
+          id: randomUUID(),
+          leadId: lead.id,
+          projectId: proj.id,
+          startAt: start,
+          place: "משרד, פתח תקווה",
+          status: status === "meet" ? "set" : status === "resched" ? "cancel" : "held",
+          setById: owner?.id ?? agents[0].id,
+          hostId: team[2].id,
+          // set during the first call, before the meeting itself
+          createdAt: new Date(Math.min(firstCall.getTime(), start.getTime(), now.getTime())),
+        },
       });
     }
     if (owner && rnd() < 0.3) await prisma.task.create({ data: { leadId: lead.id, userId: owner.id, title: `לחזור ל${name}`, dueAt: at(addDays(sod(now), Math.floor(rnd() * 3) - 1), 11) } });

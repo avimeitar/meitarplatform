@@ -178,6 +178,42 @@ d("CRM rules on a real database", () => {
     expect(n(second.id)).toBeGreaterThan(0);
   });
 
+  it("performance counts what each rep received, called, booked and held, and where the leads stand", async () => {
+    const perf = await import("@/lib/crm/performance");
+    const SRC = "בדיקת ביצועים";
+    const lead = async (phone: string) =>
+      (await undo.withUndo(by.id, "test", (tx, rec) => crm.createOrMergeLead(tx, rec, { name: "ליד ביצועים", phone, source: SRC, owner: by.id }, null))).result.leadId;
+    const a = await lead("+972500000301"); // called, no answer
+    const b = await lead("+972500000302"); // booked on the call, and held
+    const c = await lead("+972500000303"); // booked, then cancelled
+    await lead("+972500000304"); // nobody touched it yet
+    const e = await lead("+972500000305"); // wrong number
+    await undo.withUndo(by.id, "noans", (tx, rec) => crm.logNoAnswer(tx, rec, a, by));
+    const past = new Date(Date.now() - 60_000);
+    const { result: mb } = await undo.withUndo(by.id, "book", (tx, rec) => crm.bookMeeting(tx, rec, b, by, { start: past, place: "זום", direct: false }));
+    await undo.withUndo(by.id, "held", (tx, rec) => crm.setMeetingStatus(tx, rec, mb.id, "held", by));
+    const { result: mc } = await undo.withUndo(by.id, "book", (tx, rec) => crm.bookMeeting(tx, rec, c, by, { start: past, place: "זום", direct: false }));
+    await undo.withUndo(by.id, "cancel", (tx, rec) => crm.setMeetingStatus(tx, rec, mc.id, "cancel", by));
+    await undo.withUndo(by.id, "lost", (tx, rec) => crm.logLost(tx, rec, e, by, "מספר לא תקין", true));
+
+    const today = new Date();
+    const day = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const r = await perf.performance(perf.periodOf({ p: "custom", from: day, to: day }), { projectId: null, source: SRC, repId: null });
+    expect(r.tiles.leads).toBe(5);
+    expect(r.mix).toMatchObject({ untreated: 1, unreached: 1, junk: 1, relevant: 2, met: 2, held: 1 });
+    // relevant out of those we could judge: 2 relevant, 1 wrong number
+    expect(r.tiles.relevantPct).toBe(67);
+    expect(r.tiles).toMatchObject({ set: 2, held: 1, canceled: 1, showUpPct: 50 });
+    expect(r.funnel).toEqual([5, 2, 2, 1, 0]);
+    const me = r.reps.find((x) => x.id === by.id);
+    expect(me).toMatchObject({ received: 5, untouched: 1, set: 2, held: 1, canceled: 1, showUpPct: 50 });
+    // three answered calls (two bookings and the wrong number) and one without an answer
+    expect(me?.calls).toBe(4);
+    expect(me?.answered).toBe(3);
+    expect(r.sources).toHaveLength(1);
+    expect(r.sources[0]).toMatchObject({ key: SRC, leads: 5, won: 0, topReason: "מספר לא תקין" });
+  });
+
   it("only the person who made a change can undo it", async () => {
     const { leadId } = await newLead("+972500000105");
     const { undoId } = await undo.withUndo(by.id, "note", (tx, rec) => crm.addActivity(tx, rec, leadId, { kind: "note", text: "x" }));

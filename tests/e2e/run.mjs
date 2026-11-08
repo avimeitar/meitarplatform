@@ -6,7 +6,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const { chromium } = require("playwright");
+const { chromium, devices } = require("playwright");
 const BASE = process.env.BASE_URL || "http://localhost:3000";
 const LOG = process.env.DEVLOG;
 const ADMIN = [process.env.ADMIN_PHONE || "050-0000001", process.env.ADMIN_PASS || "test-pass-1234"];
@@ -172,6 +172,54 @@ try {
   await p.click(".drawer button[type=submit]");
   await p.waitForURL(/\/leads\/[^/?]+$/, { timeout: 10000 });
   ok("the new lead's card opens", (await p.locator(".lead-head h1").textContent()).includes("ליד מבדיקה"));
+
+  // ---- work hours: set up the phone's signature, then sign in and out (Chrome's virtual authenticator stands in for the fingerprint) ----
+  const h = await (await browser.newContext({ ...devices["iPhone 13"], timezoneId: "Asia/Jerusalem", locale: "he-IL" })).newPage();
+  h.on("pageerror", (e) => errors.push(e.message));
+  const cdp = await h.context().newCDPSession(h);
+  await cdp.send("WebAuthn.enable");
+  await cdp.send("WebAuthn.addVirtualAuthenticator", {
+    options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const signedToast = async () => {
+    await h.waitForSelector(".toast.show", { timeout: 15000 }).catch(() => {});
+    const t = (await h.locator(".toast span").first().textContent().catch(() => "")) || "";
+    await h.waitForSelector(".toast.show", { state: "detached", timeout: 15000 }).catch(() => {});
+    return t;
+  };
+  await login(h, AGENT);
+  await h.goto(`${BASE}/hours`);
+  // a phone from an earlier run is not this browser's: take it off first
+  while (await h.locator(".phones button:has-text(\"הסרה\")").count()) {
+    await h.click(".phones button:has-text(\"הסרה\") >> nth=0");
+    await signedToast();
+  }
+  await h.waitForSelector(".hours-now.setup button:not([disabled])", { timeout: 15000 });
+  await h.click(".hours-now.setup button");
+  ok("hours: a phone is set up for signing", (await signedToast()).includes("החתימה הוגדרה"));
+  const clock = async (word) => {
+    await h.click(".top .shift-btn");
+    await h.waitForSelector(`.drawer button:has-text("${word}"):not([disabled])`, { timeout: 15000 });
+    await h.click(`.drawer button:has-text("${word}")`);
+    return signedToast();
+  };
+  if (await h.locator(".top .shift-btn.on").count()) await clock("לחתום ולצאת");
+  ok("hours: signing in to a shift", (await clock("לחתום ולהיכנס")).includes("נכנסת למשמרת"));
+  await h.waitForSelector(".top .shift-btn.on");
+  ok("hours: signing out of it", (await clock("לחתום ולצאת")).includes("יצאת מהמשמרת"));
+  ok("hours: the shift is listed as signed", (await h.locator(".hours-table .kind.k-signed").count()) > 0);
+  ok("hours: agents can't export hours", (await h.evaluate(async () => (await fetch("/api/export/hours")).status)) === 403);
+  await h.goto(`${BASE}/performance`);
+  await h.waitForURL("**/denied", { timeout: 10000 }).catch(() => {});
+  ok("agents can't open the performance screen", h.url().includes("/denied"));
+
+  // ---- the manager's view: the team's hours and the performance screen ----
+  await a.goto(`${BASE}/hours`);
+  ok("hours: the team table lists the agent", (await a.locator(".hours-team").innerText()).includes("אורנה"));
+  await a.goto(`${BASE}/performance?p=3m`);
+  await a.waitForSelector(".perf-kpis");
+  ok("performance: six tiles and the rep table", (await a.locator(".perf-kpis .kpi").count()) === 6 && (await a.locator(".perf-reps tbody tr").count()) > 0);
+  ok("performance: system administrators are not in the rep table", !(await a.locator(".perf-reps").innerText()).includes("מנהל בדיקה"));
   ok("no page errors", errors.length === 0, errors.join(" | "));
 } catch (e) {
   results.push("CRASH " + String(e.message).split("\n")[0]);

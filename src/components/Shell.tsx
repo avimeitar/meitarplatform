@@ -7,6 +7,7 @@ import { signOutAction } from "@/app/actions/auth";
 import { Icon, type IconName } from "@/components/Icon";
 import { useDrawer, Overlays } from "@/components/ui/Overlays";
 import { NewLeadForm, type PersonOption, type ProjectOption } from "@/components/leads/NewLeadForm";
+import { ShiftButton, type ShiftInfo } from "@/components/hours/ShiftButton";
 import type { Permission } from "@/lib/permissions";
 
 // Opens the "new lead" form from anywhere (for example from an empty search, with the number filled in).
@@ -16,7 +17,8 @@ export const useNewLead = () => useContext(NewLeadCtx);
 export type ShellUser = { id: string; name: string; firstName: string; roleName: string; permissions: Permission[] };
 export type NavCounts = Partial<Record<"work" | "leads" | "meetings" | "tasks", number>>;
 
-type NavItem = { href: string; label: string; icon: IconName; key?: keyof NavCounts; need?: Permission[] };
+// hours: shown to whoever reports hours, and to whoever manages them
+type NavItem = { href: string; label: string; icon: IconName; key?: keyof NavCounts; need?: Permission[]; hours?: true };
 const NAV: { group: string; items: NavItem[] }[] = [
   {
     group: "עבודה יומית",
@@ -26,13 +28,15 @@ const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/leads", label: "לידים", icon: "users", key: "leads" },
       { href: "/meetings", label: "פגישות", icon: "cal", key: "meetings" },
       { href: "/tasks", label: "משימות", icon: "check", key: "tasks" },
+      { href: "/hours", label: "שעות עבודה", icon: "clock", hours: true },
     ],
   },
   {
     group: "ניהול",
     items: [
+      { href: "/performance", label: "ביצועים", icon: "chart", need: ["reports.view"] },
       { href: "/projects", label: "פרויקטים", icon: "grid", need: ["reports.view"] },
-      { href: "/deals", label: "עסקאות סגורות", icon: "chart", need: ["reports.view"] },
+      { href: "/deals", label: "עסקאות סגורות", icon: "key", need: ["reports.view"] },
     ],
   },
   {
@@ -52,7 +56,7 @@ function initials(name: string) {
   return (p[0]?.[0] ?? "") + (p[1]?.[0] ?? "");
 }
 
-function ShellInner({ user, counts, projects, people, children }: { user: ShellUser; counts: NavCounts; projects: ProjectOption[]; people: PersonOption[]; children: ReactNode }) {
+function ShellInner({ user, counts, projects, people, shift, children }: { user: ShellUser; counts: NavCounts; projects: ProjectOption[]; people: PersonOption[]; shift: ShiftInfo; children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const drawer = useDrawer();
@@ -103,7 +107,7 @@ function ShellInner({ user, counts, projects, people, children }: { user: ShellU
         </div>
         <nav className="nav" aria-label="ניווט ראשי">
           {NAV.map((g) => {
-            const items = g.items.filter((it) => !it.need || it.need.some(has));
+            const items = g.items.filter((it) => (it.hours ? shift.tracked || has("hours.manage") : !it.need || it.need.some(has)));
             if (!items.length) return null;
             return (
               <div key={g.group}>
@@ -165,6 +169,7 @@ function ShellInner({ user, counts, projects, people, children }: { user: ShellU
           <Icon name="search" />
           <input type="search" placeholder="חיפוש לפי שם או טלפון" aria-label="חיפוש לידים" value={q} onChange={(e) => setQ(e.target.value)} />
         </form>
+        <ShiftButton info={shift} />
         {has("leads.create") && (
           <button type="button" className="btn primary new-lead" onClick={() => openNewLead()}>
             <Icon name="plus" />
@@ -199,7 +204,7 @@ function ShellInner({ user, counts, projects, people, children }: { user: ShellU
   );
 }
 
-export function Shell(props: { user: ShellUser; counts: NavCounts; projects: ProjectOption[]; people: PersonOption[]; children: ReactNode }) {
+export function Shell(props: { user: ShellUser; counts: NavCounts; projects: ProjectOption[]; people: PersonOption[]; shift: ShiftInfo; children: ReactNode }) {
   return (
     <Overlays>
       <ShellInner {...props} />

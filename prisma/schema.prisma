@@ -44,6 +44,8 @@ model User {
   activities    Activity[] @relation("ActivityUser")
   meetingsSet   Meeting[]  @relation("MeetingSetBy")
   meetingsHosted Meeting[] @relation("MeetingHost")
+  shifts        WorkShift[] @relation("ShiftUser")
+  signDevices   SignDevice[] @relation("SignDeviceUser")
 
   @@index([roleId])
   @@map("user")
@@ -202,10 +204,11 @@ model Lead {
   updatedAt      DateTime  @updatedAt
   lastActivityAt DateTime  @default(now())
 
-  activities Activity[]
-  meetings   Meeting[]
-  tasks      Task[]
-  inquiries  Inquiry[]
+  activities  Activity[]
+  meetings    Meeting[]
+  tasks       Task[]
+  inquiries   Inquiry[]
+  assignments LeadAssignment[]
 
   @@index([status])
   @@index([ownerId])
@@ -329,4 +332,106 @@ model Setting {
   key       String   @id
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------- performance
+
+// Who a lead was given to, and when. "Leads received" per rep counts these, so a lead that moves on still counts for the rep who had it.
+model LeadAssignment {
+  id     String   @id @default(cuid())
+  leadId String
+  lead   Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  userId String
+  at     DateTime @default(now())
+  byId   String?
+
+  @@index([userId, at])
+  @@index([leadId])
+}
+
+// ---------------------------------------------------------------- work hours
+
+// One shift. In and out are signed on the person's phone; the times are the server's, so they can't be typed in.
+model WorkShift {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation("ShiftUser", fields: [userId], references: [id])
+  startAt   DateTime
+  endAt     DateTime?
+  // how each side was recorded: "signed" (the button and the phone's signature) or "manual" (added or corrected later, with a reason)
+  startKind String    @default("signed")
+  endKind   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  signatures ShiftSignature[]
+  edits      ShiftEdit[]
+
+  @@index([userId, startAt])
+  @@index([startAt])
+}
+
+// The phone's signature over one event (in, out or a correction), kept as proof that can be checked again later.
+model ShiftSignature {
+  id        String    @id @default(cuid())
+  shiftId   String
+  shift     WorkShift @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  userId    String
+  action    String // in | out | edit
+  deviceId  String
+  event     Json // what was signed: the event and the server's time
+  response  Json // the phone's answer (WebAuthn assertion)
+  signedAt  DateTime  @default(now())
+  ip        String?
+  userAgent String?
+
+  @@index([shiftId])
+}
+
+// Every correction: who made it, why, and the times before and after. Nothing is overwritten silently.
+model ShiftEdit {
+  id        String    @id @default(cuid())
+  shiftId   String
+  shift     WorkShift @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  byId      String
+  byName    String
+  reason    String
+  before    Json
+  after     Json
+  // a correction by the employee is signed on their phone; a manager's correction of someone else is not
+  signed    Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  @@index([shiftId])
+}
+
+// A phone set up for signing (a passkey). Only its public key is kept here.
+model SignDevice {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation("SignDeviceUser", fields: [userId], references: [id], onDelete: Cascade)
+  credentialId String    @unique
+  publicKey    Bytes
+  counter      Int       @default(0)
+  transports   String[]
+  name         String
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+  revokedAt    DateTime?
+
+  @@index([userId])
+}
+
+// A one-time challenge for setting up a phone or signing an event. It expires within minutes and works once.
+model SignChallenge {
+  id        String    @id @default(cuid())
+  userId    String
+  purpose   String // register | in | out | edit
+  challenge String    @unique
+  data      Json?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }

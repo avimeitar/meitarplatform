@@ -30,6 +30,21 @@ const MANAGER_VIEWS = ["all", "new", "unassigned", "noans", "meet", "resched", "
 
 type Params = Record<string, string | undefined>;
 
+/** "2026-11-01" → that day at 00:00 (Israel time); anything else → null. */
+function day(s: string | undefined): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s ?? "");
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  return d.getDate() === +m[3] ? d : null;
+}
+
+/** Leads that came in between two days, both included (?from=2026-11-01&to=2026-11-08). Used by the links from the performance screen. */
+export function createdRange(sp: Params): { from: Date | null; to: Date | null } {
+  const from = day(sp.from);
+  const to = day(sp.to);
+  return { from, to };
+}
+
 /** Which view is shown, the search, the filters, and the query for the rows. */
 export function leadsQuery(u: CurrentUser, sp: Params) {
   const manager = can(u, "leads.assign");
@@ -41,6 +56,8 @@ export function leadsQuery(u: CurrentUser, sp: Params) {
   if (sp.source) filters.push({ source: sp.source });
   if (sp.status && isLeadStatus(sp.status)) filters.push({ status: sp.status });
   if (sp.owner && manager) filters.push(sp.owner === "none" ? { ownerId: null } : { ownerId: sp.owner });
+  const range = createdRange(sp);
+  if (range.from || range.to) filters.push({ createdAt: { ...(range.from ? { gte: range.from } : {}), ...(range.to ? { lt: addDays(range.to, 1) } : {}) } });
   const scope = leadScope(u);
   let where: Prisma.LeadWhereInput;
   if (q) {

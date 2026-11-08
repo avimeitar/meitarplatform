@@ -96,3 +96,77 @@
   .reports .rp-deals .rp-m{display:block}
   .reports .rp-deals td.empty{grid-column:1 / -1;padding:12px 0}
 }
+
+/* ---------- performance (/performance) ---------- */
+.reports .perf-sels,.reports .perf-range{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.reports .perf-range .sel{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-1);color:var(--ink-2)}
+.reports .perf-range input{height:32px;padding:0 8px;border:1px solid var(--field-line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:var(--fs-1)}
+.reports .perf-when{margin:0 2px 10px;color:var(--ink-2)}
+.reports .perf-when b{color:var(--navy)}
+.reports .perf-kpis{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.reports .perf-kpis .kpi{display:flex;flex-direction:column;gap:2px}
+.reports .perf-kpis .dl{font-family:var(--num);font-size:var(--fs-1);font-weight:500;color:var(--ink-2)}
+/* the tiles' labels are blocks; the arrow stays on the line of its text */
+.reports .perf-kpis .dl span{display:inline;font-size:inherit;color:inherit}
+.reports .perf-kpis small{font-size:var(--fs-1);color:var(--ink-3);line-height:1.35}
+.reports .perf-kpis small em{font-style:normal}
+.reports .perf-funnel{margin-top:0}
+.reports .fates{list-style:none;margin:18px 0 0;padding:14px 6px 0;border-top:1px solid var(--line-soft);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.reports .fates li{display:flex;flex-direction:column;gap:2px;color:var(--ink-2)}
+.reports .fates li > a{color:inherit;text-decoration:none}
+.reports .fates li > a:hover{text-decoration:underline}
+.reports .fates b{font-size:var(--fs-4);color:var(--navy);margin-inline-end:4px}
+.reports .fates small{font-size:var(--fs-1);color:var(--ink-3)}
+.reports .perf-charts,.reports .perf-table,.reports .perf-how{margin-top:16px}
+.reports .perf-table th{white-space:normal;vertical-align:bottom;line-height:1.3}
+.reports .perf-table th.num,.reports .perf-table td.num{text-align:end}
+.reports .perf-table td small{display:block;font-family:var(--font);font-size:var(--fs-1);font-weight:400;color:var(--ink-3)}
+.reports .perf-table td small.warn-text{color:var(--amber)}
+.reports .perf-table tr.sel td{background:var(--blue-50)}
+.reports .perf-table td.txt{white-space:normal;min-width:120px}
+.reports .perf-table td.num a{color:var(--blue-ink);font-weight:600}
+.reports .perf-how{padding:14px 18px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.reports .perf-how summary{cursor:pointer;font-weight:600;color:var(--navy)}
+.reports .perf-how dl{display:grid;grid-template-columns:minmax(120px,auto) minmax(0,1fr);gap:8px 16px;margin:12px 0 0}
+.reports .perf-how dt{font-weight:600;color:var(--ink)}
+.reports .perf-how dd{margin:0;color:var(--ink-2)}
+.reports .perf-how > p{margin-top:10px}
+
+/* columns over time: thin bars with rounded tops on one baseline, numbers above them, details on hover or tap */
+.reports .pc{margin:0}
+.reports .pc-legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0 0 8px;font-size:var(--fs-1);color:var(--ink-2)}
+.reports .pc-legend span{display:inline-flex;align-items:center;gap:6px}
+.reports .sw{display:inline-block;width:10px;height:10px;flex:none;border-radius:3px}
+.reports .sw.c1,.reports .pc-bar.c1{background:var(--c1)}
+.reports .sw.c3,.reports .pc-bar.c3{background:var(--c3)}
+.reports .pc-plot{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:6px;align-items:end;height:170px;padding-top:24px;border-bottom:1px solid var(--line)}
+.reports .pc-col{position:relative;display:flex;align-items:flex-end;justify-content:center;gap:2px;height:100%;border-radius:6px 6px 0 0;cursor:default}
+.reports .pc-col.on{background:#F2F5FB}
+.reports .pc-col:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+.reports .pc-bar{position:relative;flex:0 1 24px;min-width:3px;border-radius:4px 4px 0 0}
+.reports .multi .pc-bar{flex-basis:16px}
+.reports .pc-bar b{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:3px;font-size:var(--fs-1);font-weight:600;color:var(--ink);white-space:nowrap}
+.reports .multi.many .pc-bar b{display:none}
+.reports .pc-tip{position:absolute;top:0;left:50%;transform:translate(-50%,calc(-100% - 6px));z-index:3;display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:8px;background:var(--ink);color:#fff;font-size:var(--fs-1);white-space:nowrap;box-shadow:0 6px 20px rgba(0,20,60,.25);pointer-events:none}
+.reports .pc-col.first .pc-tip{left:auto;right:0;transform:translateY(calc(-100% - 6px))}
+.reports .pc-col.last .pc-tip{left:0;transform:translateY(calc(-100% - 6px))}
+.reports .pc-tip span{display:flex;align-items:center;gap:6px}
+.reports .pc-tip .sw{box-shadow:0 0 0 1px rgba(255,255,255,.7)}
+.reports .pc-x{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:6px;margin-top:6px}
+/* a label may be wider than its column: it is centred over the column and may use the room of its neighbours */
+.reports .pc-x span{display:block;width:200%;margin-inline-start:-50%;font-size:var(--fs-1);line-height:1.3;color:var(--ink-3);text-align:center;white-space:pre-line}
+.reports .lots .pc-x span:nth-child(even){visibility:hidden}
+
+@media (max-width:760px){
+  .reports .perf-sels{width:100%}
+  .reports .perf-range{width:100%}
+  .reports .perf-range .sel{flex:1 1 40%}
+  .reports .perf-range input{flex:1;height:44px;font-size:var(--fs-2)}
+  .reports .fates{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .reports .perf-how dl{grid-template-columns:minmax(0,1fr);gap:2px}
+  .reports .perf-how dd{margin-bottom:8px}
+  .reports .perf-table .rp-break td.txt{grid-column:1 / -1}
+  .reports .pc-plot,.reports .pc-x{gap:3px}
+  .reports .many .pc-x span:nth-child(even){visibility:hidden}
+  .reports .pc-bar b{font-size:12px}
+}

@@ -102,11 +102,18 @@ export async function pickAutoOwner(tx: Tx): Promise<string | null> {
   return (await autoOwnerPicker(tx))();
 }
 
+/** Keeps who got the lead and when, for "leads received" in the performance numbers. */
+async function recordAssignment(tx: Tx, rec: Recorder, leadId: string, userId: string, byId: string | null) {
+  const row = await tx.leadAssignment.create({ data: { leadId, userId, byId } });
+  rec.created("leadAssignment", row.id);
+}
+
 export async function assignLead(tx: Tx, rec: Recorder, leadId: string, ownerId: string | null, by: By | null) {
   const lead = await tx.lead.findUniqueOrThrow({ where: { id: leadId } });
   if (lead.ownerId === ownerId) return;
   const owner = ownerId ? await tx.user.findUnique({ where: { id: ownerId }, select: { name: true } }) : null;
   await setLead(tx, rec, leadId, { ownerId });
+  if (ownerId) await recordAssignment(tx, rec, leadId, ownerId, by?.id ?? null);
   // the new owner also gets the lead's open tasks
   if (ownerId) {
     const open = await tx.task.findMany({ where: { leadId, done: false, userId: lead.ownerId ?? undefined } });
@@ -181,6 +188,7 @@ export async function createOrMergeLead(
     },
   });
   rec.created("lead", lead.id);
+  if (ownerId) await recordAssignment(tx, rec, lead.id, ownerId, by?.id ?? null);
   await addActivity(tx, rec, lead.id, {
     kind: "in",
     text: by ? `ליד חדש נוסף ידנית. מקור: ${input.source}` : `ליד חדש נכנס. מקור: ${input.source}`,

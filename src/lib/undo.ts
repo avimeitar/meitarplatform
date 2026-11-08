@@ -3,13 +3,13 @@ import { prisma, type Tx } from "./db";
 // Server-side undo. Each change records what it created and the earlier values of what it changed,
 // so the toast's "ביטול" can put everything back, including tasks and timeline entries it added.
 
-export type UndoModel = "lead" | "activity" | "meeting" | "task" | "inquiry";
+export type UndoModel = "lead" | "activity" | "meeting" | "task" | "inquiry" | "leadAssignment";
 type Op = { t: "create"; model: UndoModel; id: string } | { t: "update"; model: UndoModel; id: string; before: Record<string, unknown> };
 
 export const UNDO_WINDOW_MS = 2 * 60_000;
 
 function delegate(tx: Tx, model: UndoModel) {
-  // the five models share the calls used here
+  // these models share the calls used here
   return (tx as unknown as Record<UndoModel, { findUnique: Function; update: Function; deleteMany: Function }>)[model];
 }
 

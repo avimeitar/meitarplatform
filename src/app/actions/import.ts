@@ -251,6 +251,8 @@ export async function runImportAction(files: string[], map: { sources: Record<st
                 lastActivityAt: createdAt,
                 createdById: u.id,
                 inquiries: { create: { source: r.source || "פיירברי", projectId: proj(r.source), campaign: r.ad || null, payload: { fireberry: true }, createdAt, externalId: key } },
+                // counted for the rep from the day the lead came in
+                ...(owner(r.owner) ? { assignments: { create: { userId: owner(r.owner) as string, at: createdAt, byId: u.id } } } : {}),
                 activities: { create: { kind: "in", text: "יובא מפיירברי", auto: note, userId: u.id, createdAt } },
               },
             });
