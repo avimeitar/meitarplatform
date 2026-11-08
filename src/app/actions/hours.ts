@@ -142,7 +142,7 @@ async function planCorrection(u: CurrentUser, input: Correction) {
   if (endAt.getTime() - startAt.getTime() > MAX_SHIFT_HOURS * 3_600_000) throw new ActionError(`משמרת לא יכולה להיות ארוכה מ-${MAX_SHIFT_HOURS} שעות`);
   const self = targetId === u.id;
   const limit = addDays(sod(now), -EDIT_DAYS);
-  if (self && (startAt < limit || (shift && !canEditShift(u, shift, now)))) throw new ActionError(`אפשר לתקן שעות רק ${EDIT_DAYS} ימים אחורה. לתיקון ישן יותר פונים למנהל`);
+  if (self && (startAt < limit || (shift && !canEditShift(u, shift, now)))) throw new ActionError(`אפשר לתקן שעות רק ${EDIT_DAYS} ימים אחורה. לתיקון ישן יותר פונים להנהלה`);
   if (shift && !self && !canEditShift(u, shift, now)) throw new ActionError("אין לך הרשאה לתקן את המשמרת הזו");
   const overlap = await prisma.workShift.findFirst({
     where: { userId: targetId, id: shift ? { not: shift.id } : undefined, startAt: { lt: endAt }, OR: [{ endAt: { gt: startAt } }, { endAt: null }] },
@@ -157,7 +157,7 @@ export async function correctionOptionsAction(input: z.input<typeof correctionSc
     const u = await requireActionUser();
     const data = correctionSchema.parse(input);
     const plan = await planCorrection(u, data);
-    if (!plan.self) throw new ActionError("תיקון של מנהל לא צריך חתימה");
+    if (!plan.self) throw new ActionError("תיקון שעות של מישהו אחר לא צריך חתימה");
     return { data: await signingOptions(u.id, "edit", { action: "edit", ...data, startAt: plan.startAt.toISOString(), endAt: plan.endAt.toISOString() }) };
   });
 }

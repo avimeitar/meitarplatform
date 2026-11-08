@@ -213,7 +213,7 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
         <div className="panel perf-table" id="reps">
           <div className="panel-head">
             <h2>לפי נציג</h2>
-            <span className="muted">סוכנים ומנהלי מכירות. לחיצה על שם מציגה את המספרים שלו</span>
+            <span className="muted">סוכנים ומנהלי מכירות. לחיצה על שם מסננת את כל המסך לפיו</span>
           </div>
           <RepTable rows={r.reps} here={here} leads={leads} active={f.repId} />
         </div>
@@ -244,13 +244,13 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
             <dt>לא נוצר קשר, עוד לא טופלו</dt>
             <dd>לא נוצר קשר: התקשרו או כתבו, ועוד לא היה מענה. עוד לא טופלו: אף אחד עוד לא התקשר ולא כתב. שניהם לא נכנסים לאחוז הרלוונטיים.</dd>
             <dt>פגישות שנקבעו</dt>
-            <dd>פגישות שנקבעו בתקופה, ונספרות למי שקבע אותן.</dd>
+            <dd>פגישות שנקבעו בתקופה. בטבלת הנציגים כל פגישה נספרת בשורה של מי שקבע אותה.</dd>
             <dt>אחוז הגעה</dt>
             <dd>מתוך הפגישות שמועדן היה בתקופה: כמה התקיימו, מתוך אלה שהתקיימו או בוטלו. פגישה שעוד לא עודכנה לא נספרת עד שמעדכנים אותה.</dd>
             <dt>עסקאות</dt>
-            <dd>לידים שעברו ל״נחתמה עסקה״ בתקופה, ונספרים לסוכן של הליד.</dd>
+            <dd>לידים שעברו ל״נחתמה עסקה״ בתקופה. בטבלת הנציגים הם נספרים לפי השיוך של הליד.</dd>
             <dt>זמן תגובה</dt>
-            <dd>הזמן מהכניסה של הליד (אצל נציג: מהרגע שהליד שויך אליו) ועד השיחה או ההודעה הראשונה. נספרות רק שעות העבודה, א׳ עד ה׳ בין 8:00 ל-20:00. חציון: חצי מהלידים קיבלו מענה מהר יותר.</dd>
+            <dd>הזמן מהכניסה של הליד (בטבלת הנציגים: מהרגע שהליד שויך) ועד השיחה או ההודעה הראשונה. נספרות רק שעות העבודה, א׳ עד ה׳ בין 8:00 ל-20:00. חציון: חצי מהלידים קיבלו מענה מהר יותר.</dd>
             <dt>שעות עבודה</dt>
             <dd>מהמשמרות שנחתמו במסך שעות עבודה.</dd>
           </dl>
@@ -269,7 +269,7 @@ function RepTable({ rows, here, leads, active }: { rows: RepRow[]; here: (x: Rec
         <thead>
           <tr>
             <th scope="col">נציג</th>
-            <th scope="col" className="num">לידים שקיבל</th>
+            <th scope="col" className="num">לידים ששויכו</th>
             <th scope="col" className="num">שיחות</th>
             <th scope="col" className="num">זמן תגובה</th>
             <th scope="col" className="num">פגישות שנקבעו</th>
@@ -287,7 +287,7 @@ function RepTable({ rows, here, leads, active }: { rows: RepRow[]; here: (x: Rec
                   <Owner id={x.id} name={x.name} inactive={x.inactive} />
                 </Link>
               </td>
-              <td className="num" data-label="לידים שקיבל">
+              <td className="num" data-label="לידים ששויכו">
                 {x.received ? <Link href={leads({ owner: x.id })}>{x.received}</Link> : 0}
                 {x.untouched ? <small className="warn-text">{x.untouched} לא טופלו</small> : null}
               </td>

@@ -27,7 +27,7 @@ export function PerfExport({ period, tiles, reps, sources, projects }: { period:
     out.push(line(["אחוז הגעה", pctText(tiles.showUpPct)]));
     out.push(line(["עסקאות", tiles.deals]));
     out.push(line(["זמן תגובה, חציון בדקות", tiles.responseMin ?? ""]), "");
-    out.push(line(["נציג", "לידים שקיבל", "לא טופלו", "שיחות", "עם מענה", "זמן תגובה, חציון בדקות", "פגישות שנקבעו", "התקיימו", "בוטלו", "לא עודכנו", "אחוז הגעה", "עסקאות", "שעות עבודה"]));
+    out.push(line(["נציג", "לידים ששויכו", "לא טופלו", "שיחות", "עם מענה", "זמן תגובה, חציון בדקות", "פגישות שנקבעו", "התקיימו", "בוטלו", "לא עודכנו", "אחוז הגעה", "עסקאות", "שעות עבודה"]));
     for (const r of reps) out.push(line([r.name, r.received, r.untouched, r.calls, r.answered, r.responseMin ?? "", r.set, r.held, r.canceled, r.unmarked, pctText(r.showUpPct), r.deals, hours(r.minutes)]));
     for (const [title, rows] of [
       ["מקור הגעה", sources],

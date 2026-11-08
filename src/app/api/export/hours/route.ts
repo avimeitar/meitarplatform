@@ -31,7 +31,7 @@ export async function GET(req: Request) {
   for (const s of shifts) byUser.set(s.userId, [...(byUser.get(s.userId) ?? []), s]);
   const people = [...byUser.values()].sort((a, b) => a[0].user.name.localeCompare(b[0].user.name, "he"));
 
-  const head = ["עובד", "תאריך", "יום", "כניסה", "יציאה", "שעות", "שעות (עשרוני)", "רישום", "הערות"];
+  const head = ["שם", "תאריך", "יום", "כניסה", "יציאה", "שעות", "שעות (עשרוני)", "רישום", "הערות"];
   const lines = [head.join(",")];
   for (const list of people) {
     let total = 0;

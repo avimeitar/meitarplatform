@@ -130,7 +130,7 @@ export function HoursScreen(p: {
           <ShiftTable rows={p.rows} onEdit={(r) => correct(r)} />
           {(p.viewing.self || p.manager) && (
             <div className="row-end">
-              <span className="muted">{p.viewing.self ? "אפשר לתקן או להוסיף משמרת עד 7 ימים אחורה, עם סיבה וחתימה. המנהל רואה כל תיקון." : "תיקון של מנהל נשמר עם השם שלך והסיבה."}</span>
+              <span className="muted">{p.viewing.self ? "אפשר לתקן או להוסיף משמרת עד 7 ימים אחורה, עם סיבה וחתימה. כל תיקון נשמר ומופיע להנהלה." : "התיקון נשמר עם השם שלך והסיבה."}</span>
               <button type="button" className="btn" onClick={() => correct()}>
                 <Icon name="plus" />
                 הוספת משמרת שנשכחה
@@ -214,7 +214,7 @@ function MyShift({ me, onFixMissing }: { me: Me; onFixMissing: () => void }) {
           <h2>חסרה שעת יציאה</h2>
           <p>
             המשמרת שהתחילה {onDay(me.missing.day)} בשעה <span className="num">{me.missing.start}</span> לא נסגרה.{" "}
-            {me.missing.canEdit ? "משלימים את שעת היציאה, עם סיבה וחתימה, ואז אפשר להיכנס למשמרת חדשה." : "עברו יותר מ-7 ימים, ולכן את שעת היציאה משלים המנהל."}
+            {me.missing.canEdit ? "משלימים את שעת היציאה, עם סיבה וחתימה, ואז אפשר להיכנס למשמרת חדשה." : "עברו יותר מ-7 ימים, ולכן את שעת היציאה משלימים דרך ההנהלה."}
           </p>
         </div>
         {me.missing.canEdit && (
@@ -349,7 +349,7 @@ function TeamTable({ team, month, viewingId }: { team: TeamRow[]; month: string;
           <table className="data hours-team">
             <thead>
               <tr>
-                <th>עובד</th>
+                <th>שם</th>
                 <th className="num">ימי עבודה</th>
                 <th className="num">שעות</th>
                 <th className="num">חסרה יציאה</th>
@@ -504,7 +504,7 @@ function CorrectionForm({ row, preset, self, userId, editFrom, today }: { row?: 
         <button type="button" className="bigbtn light" disabled={busy} onClick={() => setReady(null)}>
           חזרה לעריכה
         </button>
-        <p className="muted">אחרי הלחיצה מאשרים בטלפון. התיקון נשמר עם הסיבה, והמנהל רואה אותו.</p>
+        <p className="muted">אחרי הלחיצה מאשרים בטלפון. התיקון נשמר עם הסיבה ומופיע להנהלה.</p>
       </div>
     );
 
