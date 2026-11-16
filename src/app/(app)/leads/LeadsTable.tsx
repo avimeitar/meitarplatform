@@ -99,7 +99,7 @@ export function LeadsTable({ rows, canBulk, people, query, canCreate }: { rows: 
               <th>מקור הגעה</th>
               <th>פרויקט</th>
               <th>סטטוס</th>
-              <th>סוכן</th>
+              <th>מנהל לקוח</th>
               <th>מתי לחזור</th>
               <th className="c-act">
                 <span className="sr">פעולות</span>

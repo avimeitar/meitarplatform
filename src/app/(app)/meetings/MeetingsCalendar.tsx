@@ -127,7 +127,7 @@ export function MeetingsCalendar(p: CalendarProps) {
 
   /** a tap on a free spot books a meeting there, on the half hour */
   function book(e: React.MouseEvent<HTMLDivElement>, day: string) {
-    if (!p.canCreate || (e.target as HTMLElement).closest(".ev")) return;
+    if (!p.canCreate || (e.target as HTMLElement).closest(".cev")) return;
     const y = e.clientY - e.currentTarget.getBoundingClientRect().top;
     const mins = p.startHour * 60 + Math.floor(y / (hourPx(p.mode) / 60) / 30) * 30;
     const when = parseKey(day);
@@ -273,7 +273,7 @@ function TimeGrid({
                 <button
                   key={m.id}
                   type="button"
-                  className={"ev " + (MS[m.status as MeetingStatus]?.c ?? "") + (m.confirmed && m.status === "set" ? " ok" : "") + (now !== null && stale(m, now) ? " stale" : "")}
+                  className={"cev " + (MS[m.status as MeetingStatus]?.c ?? "") + (m.confirmed && m.status === "set" ? " ok" : "") + (now !== null && stale(m, now) ? " stale" : "")}
                   style={{
                     top: Math.max(0, top),
                     height: LENGTH * PX - 3,
@@ -384,7 +384,7 @@ function MeetingDetails({ m }: { m: CalMeeting }) {
       </dl>
       {m.canEdit && (
         <>
-          <p className="q">{past ? "מה קרה בפגישה?" : "עדכון הפגישה"}</p>
+          <p className="q">סטטוס פגישה</p>
           <div className="mseg big" role="group" aria-label="סטטוס הפגישה">
             {(["set", "cancel", "held"] as MeetingStatus[]).map((s) => {
               const on = m.status === s;

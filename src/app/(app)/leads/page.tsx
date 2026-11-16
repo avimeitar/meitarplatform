@@ -123,7 +123,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             </label>
             {manager && (
               <label className="sel">
-                <span className="sr">סוכן</span>
+                <span className="sr">מנהל לקוח</span>
                 <select name="owner" defaultValue={sp.owner ?? ""}>
                   <option value="">כל הצוות</option>
                   <option value="none">לא שויכו</option>

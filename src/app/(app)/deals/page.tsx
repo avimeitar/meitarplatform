@@ -53,7 +53,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
         <div>
           <h1>עסקאות סגורות</h1>
           <p className="sub">
-            כל ליד שעבר ל״נחתמה עסקה״ מ-1 ב{MON[since.getMonth()]} עד היום, לפי חודש, סוכן, פרויקט ומקור.
+            כל ליד שעבר ל״נחתמה עסקה״ מ-1 ב{MON[since.getMonth()]} עד היום, לפי חודש, מנהל לקוח, פרויקט ומקור.
           </p>
         </div>
       </div>
@@ -92,10 +92,10 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
           </div>
           <div className="panel">
             <div className="panel-head">
-              <h2>לפי סוכן</h2>
+              <h2>לפי מנהל לקוח</h2>
             </div>
             <Bars
-              label="עסקאות לפי סוכן"
+              label="עסקאות לפי מנהל לקוח"
               empty={none}
               rows={r.byOwner.map((o) => {
                 const p = o.key ? person.get(o.key) : undefined;
@@ -130,7 +130,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
                 <th>תאריך</th>
                 <th>ליד</th>
                 <th>פרויקט</th>
-                <th>סוכן</th>
+                <th>מנהל לקוח</th>
                 <th>מקור הגעה</th>
               </tr>
             </thead>

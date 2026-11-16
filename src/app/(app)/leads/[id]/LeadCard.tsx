@@ -11,11 +11,13 @@ import { TaskList, type TaskItem } from "@/components/crm/TaskList";
 import { useToast } from "@/components/ui/Overlays";
 import { useRunner } from "@/components/ui/useRunner";
 import { MAIN, MS, REASONS, ST, type LeadStatus, type MeetingStatus } from "@/lib/crm/constants";
-import { addDays, dayLabel, fD, fT, iso, nextWorkday, relTime, sod } from "@/lib/crm/dates";
+import { addDays, dayFull, dayLabel, fD, fT, iso, nextWorkday, relTime, sod } from "@/lib/crm/dates";
 
 export type Activity = { id: string; kind: string; direction: string | null; text: string; auto: string | null; tags: string[]; userName: string | null; createdAt: string };
 export type MeetingItem = { id: string; startAt: string; place: string; status: string; confirmed: boolean; projectName: string; setByName: string | null; hostName: string | null; canEdit: boolean };
 export type LeadCardData = {
+  /** when the server drew the card, so "upcoming" means the same on the server and in the browser */
+  renderedAt: string;
   id: string;
   name: string;
   phone: string;
@@ -38,6 +40,8 @@ export type LeadCardData = {
   tasks: TaskItem[];
 };
 
+type Tab = "note" | "task" | "meet" | "wa";
+
 const EV_ICON: Record<string, IconName> = { in: "in", call: "phone", miss: "phone-x", wa: "wa", status: "flag", meeting: "cal", note: "note", task: "check", system: "zap" };
 
 export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCardData; projects: { id: string; name: string }[]; people: { id: string; name: string }[]; perms: { edit: boolean; assign: boolean; del: boolean; assignTasks: boolean }; meId: string }) {
@@ -46,9 +50,11 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
   const runner = useRunner();
   const toast = useToast();
   const [lostOpen, setLostOpen] = useState(false);
-  const [tab, setTab] = useState<"wa" | "call" | "note" | "task">("wa");
+  const [tab, setTab] = useState<Tab>("note");
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const sl: SheetLead = { id: lead.id, name: lead.name, phoneRaw: lead.phoneRaw, projectName: lead.projectName };
+  // the next meeting, for the WhatsApp message with its details
+  const next = lead.meetings.filter((m) => m.status === "set" && new Date(m.startAt).getTime() > Date.parse(lead.renderedAt)).sort((a, b) => a.startAt.localeCompare(b.startAt))[0];
+  const sl: SheetLead = { id: lead.id, name: lead.name, phoneRaw: lead.phoneRaw, projectName: lead.projectName, meeting: next ? { startAt: next.startAt, hostName: next.hostName } : null };
   const fn = firstName(lead.name);
   const status = lead.status as LeadStatus;
   const mi = MAIN.indexOf(status);
@@ -73,7 +79,7 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
   }
 
   // on a phone the composer is further down the page: bring it into view
-  function openComposer(k: "wa" | "call" | "note" | "task") {
+  function openComposer(k: Tab) {
     setTab(k);
     setTimeout(() => {
       const el = document.getElementById("composer");
@@ -231,10 +237,10 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
               <div className="ctabs" role="tablist" aria-label="פעולה">
                 {(
                   [
-                    ["wa", "וואטסאפ", "wa"],
-                    ["call", "תיעוד שיחה", "phone"],
                     ["note", "הערה", "note"],
                     ["task", "משימה", "check"],
+                    ["meet", "תיאום פגישה", "cal"],
+                    ["wa", "וואטסאפ", "wa"],
                   ] as const
                 ).map(([k, label, icon]) => (
                   <button key={k} type="button" role="tab" className={tab === k ? "on" : ""} aria-selected={tab === k} onClick={() => setTab(k)}>
@@ -244,13 +250,13 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
                 ))}
               </div>
               {tab === "wa" && <WaComposer lead={sl} onSent={(t) => runner(logWhatsAppAction(lead.id, t))} />}
-              {tab === "call" && (
+              {tab === "meet" && (
                 <div className="cpane">
                   <div className="sheet-body">
-                    <p className="q">מה קרה בשיחה עם {fn}?</p>
-                    <button type="button" className="bigbtn call" onClick={() => sheets.afterCall(sl)}>
-                      <Icon name="phone" />
-                      לתעד את השיחה
+                    <p className="q">{next ? `יש פגישה ${dayFull(new Date(next.startAt))} בשעה ${fT(new Date(next.startAt))}. לקבוע עוד פגישה?` : `מתי נפגשים עם ${fn}?`}</p>
+                    <button type="button" className="bigbtn call" onClick={() => sheets.book(sl)}>
+                      <Icon name="cal" />
+                      תיאום פגישה
                     </button>
                   </div>
                 </div>
@@ -372,10 +378,10 @@ function Details({ lead, projects, people, perms }: { lead: LeadCardData; projec
         <dd>
           <StatusPill status={lead.status} />
         </dd>
-        <dt>סוכן</dt>
+        <dt>מנהל לקוח</dt>
         <dd>
           {perms.assign ? (
-            <select aria-label="סוכן מטפל" value={lead.ownerId ?? ""} onChange={(e) => runner(assignLeadAction(lead.id, e.target.value || null))}>
+            <select aria-label="מנהל לקוח" value={lead.ownerId ?? ""} onChange={(e) => runner(assignLeadAction(lead.id, e.target.value || null))}>
               <option value="">לא שויך</option>
               {people.map((p) => (
                 <option key={p.id} value={p.id}>

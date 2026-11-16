@@ -5,7 +5,7 @@ export const ST = {
   meet: { l: "נקבעה פגישה", c: "s-meet" },
   resched: { l: "לתאם מחדש", c: "s-resched" },
   held: { l: "התקיימה פגישה", c: "s-held" },
-  follow: { l: "המשך טיפול", c: "s-nego" },
+  follow: { l: "המשך טיפול לאחר פגישה", c: "s-nego" },
   won: { l: "נחתמה עסקה", c: "s-won" },
   lost: { l: "לא רלוונטי", c: "s-lost" },
 } as const;
@@ -41,4 +41,10 @@ export const PLACES = [
 /** Sources people can choose when adding a lead by hand. Leads from forms and campaigns bring their own. */
 export const MANUAL_SOURCES = ["שיחה נכנסת", "הגעה למשרד", "הפניה", "פייסבוק", "דף נחיתה", "גוגל", "וואטסאפ", "אתר החברה", "ספק לידים", "אחר"];
 
-export const OFFICE_ADDRESS = "המשרד שלנו נמצא בדרך רבין 1, פתח תקווה, מגדל גלובל טאוור, קומה 4.";
+/** Every meeting is at the office. */
+export const OFFICE = {
+  place: "משרד, פתח תקווה",
+  address: "דרך רבין 1, פתח תקווה, מגדל גלובל טאוור, קומה 4",
+  waze: "https://waze.com/ul?q=" + encodeURIComponent("דרך רבין 1, פתח תקווה") + "&navigate=yes",
+};
+export const OFFICE_ADDRESS = `המשרד שלנו נמצא ב${OFFICE.address}.`;

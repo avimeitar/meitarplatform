@@ -51,7 +51,6 @@ function ProjectForm({ project }: { project?: ProjectView }) {
   const router = useRouter();
   const [name, setName] = useState(project?.name ?? "");
   const [fullName, setFullName] = useState(project?.fullName ?? "");
-  const [place, setPlace] = useState(project?.place ?? "");
   const [err, setErr] = useState<{ field?: string; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -59,9 +58,8 @@ function ProjectForm({ project }: { project?: ProjectView }) {
     e.preventDefault();
     setErr(null);
     if (name.trim().length < 2) return setErr({ field: "name", text: "צריך לכתוב שם קצר לפרויקט" });
-    if (place.trim().length < 2) return setErr({ field: "place", text: "צריך לכתוב איפה הפרויקט" });
     setBusy(true);
-    const input = { name, fullName, place };
+    const input = { name, fullName };
     const r = project ? await updateProjectAction(project.id, input) : await createProjectAction(input);
     setBusy(false);
     if (!r.ok) return setErr({ field: r.field, text: r.error });
@@ -91,13 +89,7 @@ function ProjectForm({ project }: { project?: ProjectView }) {
         <small>מופיע בכרטיס הפרויקט. אם משאירים ריק, משתמשים בשם הקצר. למשל: מטרופארק פתח תקווה</small>
         {fe("fullName")}
       </label>
-      <label className="fld">
-        <span className="req">מקום</span>
-        <input value={place} onChange={(e) => setPlace(e.target.value)} maxLength={60} autoComplete="off" aria-invalid={err?.field === "place"} />
-        <small>עיר או ארץ. למשל: פתח תקווה, או יוון</small>
-        {fe("place")}
-      </label>
-      {err && !["name", "fullName", "place"].includes(err.field ?? "") && (
+      {err && !["name", "fullName"].includes(err.field ?? "") && (
         <p className="form-error" role="alert">
           {err.text}
         </p>

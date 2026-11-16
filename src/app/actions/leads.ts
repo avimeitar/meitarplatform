@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { run, type ActionResult } from "@/lib/action";
 import { audit } from "@/lib/audit";
-import { isLeadStatus, isMeetingStatus, MANUAL_SOURCES, meetingClient, PLACES, REASONS } from "@/lib/crm/constants";
+import { isLeadStatus, isMeetingStatus, MANUAL_SOURCES, meetingClient, OFFICE, REASONS } from "@/lib/crm/constants";
 import { LATER, laterDate, laterLabel, type LaterKey } from "@/lib/crm/dates";
 import * as crm from "@/lib/crm/service";
 import { prisma } from "@/lib/db";
@@ -72,7 +72,7 @@ export async function createLeadAction(input: z.input<typeof newLeadSchema>): Pr
     else if (data.owner !== u.id) {
       if (!can(u, "leads.assign")) throw new ActionError("אין לך הרשאה לשייך לידים לאחרים", "owner");
       const target = await prisma.user.findFirst({ where: { id: data.owner, active: true, deletedAt: null } });
-      if (!target) throw new ActionError("הסוכן שנבחר לא פעיל", "owner");
+      if (!target) throw new ActionError("מנהל הלקוח שנבחר לא פעיל", "owner");
       owner = target.id;
     }
     const source = MANUAL_SOURCES.includes(data.source) ? data.source : "אחר";
@@ -83,7 +83,7 @@ export async function createLeadAction(input: z.input<typeof newLeadSchema>): Pr
     // someone who sees only their own leads isn't shown another agent's lead
     const hidden = result.duplicate && !can(u, "leads.view_all") && result.ownerId !== u.id;
     const message = hidden
-      ? "הטלפון הזה כבר שייך לליד של סוכן אחר. הפנייה נוספה לכרטיס שלו"
+      ? "הטלפון הזה כבר שייך לליד שמנוהל בידי מישהו אחר. הפנייה נוספה לכרטיס הקיים"
       : result.duplicate
         ? `הטלפון כבר קיים, ולכן הפנייה נוספה לכרטיס הקיים`
         : `הליד ${data.name} נשמר` + (result.ownerName ? (result.ownerName === u.name ? " אצלך" : ` ושויך ל${result.ownerName}`) : "");
@@ -126,16 +126,17 @@ export async function lostAction(leadId: string, reason: string, fromCall = true
   });
 }
 
-export async function bookMeetingAction(leadId: string, day: string, time: string, place: string, direct: boolean): Promise<ActionResult> {
+/** Every meeting is at the office. Returns what the screen needs for the WhatsApp message with the details. */
+export async function bookMeetingAction(leadId: string, day: string, time: string, direct: boolean): Promise<ActionResult<{ meetingId: string; startAt: string; hostName: string | null }>> {
   return run(async () => {
     const u = await requireActionUser("leads.edit");
     const lead = await leadFor(u, leadId);
     const start = parseSlot(day, time);
-    const pl = PLACES.some((p) => p.value === place) ? place : PLACES[0].value;
-    const { undoId } = await withUndo(u.id, "קביעת פגישה", (tx, rec) => crm.bookMeeting(tx, rec, lead.id, by(u), { start, place: pl, direct }));
+    const { result: m, undoId } = await withUndo(u.id, "קביעת פגישה", (tx, rec) => crm.bookMeeting(tx, rec, lead.id, by(u), { start, place: OFFICE.place, direct }));
     refresh();
+    const host = m.hostId ? await prisma.user.findUnique({ where: { id: m.hostId }, select: { name: true } }) : null;
     const { dayLabel, fT } = await import("@/lib/crm/dates");
-    return { message: `הפגישה עם ${lead.name.split(/\s+/)[0]} נקבעה ל${dayLabel(start)} ב-${fT(start)}`, undoId };
+    return { message: `הפגישה עם ${lead.name.split(/\s+/)[0]} נקבעה ל${dayLabel(start)} ב-${fT(start)}`, undoId, data: { meetingId: m.id, startAt: start.toISOString(), hostName: host?.name ?? null } };
   });
 }
 

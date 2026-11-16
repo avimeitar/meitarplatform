@@ -16,7 +16,12 @@ const projectSchema = z.object({
     .optional()
     .transform((v) => oneLine(v ?? ""))
     .pipe(z.string().max(80, "השם המלא ארוך מדי. אפשר עד 80 תווים")),
-  place: z.string().transform(oneLine).pipe(z.string().min(2, "צריך לכתוב איפה הפרויקט").max(60, "המקום ארוך מדי. אפשר עד 60 תווים")),
+  // no longer asked for: projects added since keep it empty, older ones keep what they had
+  place: z
+    .string()
+    .optional()
+    .transform((v) => (v === undefined ? undefined : oneLine(v)))
+    .pipe(z.string().max(60, "המקום ארוך מדי. אפשר עד 60 תווים").optional()),
 });
 
 export type ProjectInput = z.input<typeof projectSchema>;
@@ -50,7 +55,7 @@ export async function createProjectAction(input: ProjectInput): Promise<ActionRe
     const d = projectSchema.parse(input);
     if (await nameTaken(d.name)) throw new ActionError(TAKEN, "name");
     const last = await prisma.project.aggregate({ _max: { sortOrder: true } });
-    const data = { name: d.name, fullName: d.fullName || d.name, place: d.place, sortOrder: (last._max.sortOrder ?? -1) + 1 };
+    const data = { name: d.name, fullName: d.fullName || d.name, place: d.place ?? "", sortOrder: (last._max.sortOrder ?? -1) + 1 };
     const p = await prisma.project.create({ data }).catch((err: unknown) => {
       if (isUniqueViolation(err)) throw new ActionError(TAKEN, "name");
       throw err;
@@ -66,7 +71,7 @@ export async function updateProjectAction(projectId: string, input: ProjectInput
     const u = await requireActionUser("projects.manage");
     const p = await projectFor(projectId);
     const d = projectSchema.parse(input);
-    const next = { name: d.name, fullName: d.fullName || d.name, place: d.place };
+    const next = { name: d.name, fullName: d.fullName || d.name, place: d.place ?? p.place };
     const changed = (Object.keys(next) as (keyof typeof next)[]).filter((k) => next[k] !== p[k]);
     if (!changed.length) return { message: "הפרטים נשמרו" };
     if (next.name !== p.name && (await nameTaken(next.name, p.id))) throw new ActionError(TAKEN, "name");

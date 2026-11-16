@@ -17,7 +17,7 @@ import { Icon, type IconName } from "@/components/Icon";
 import { useDrawer } from "@/components/ui/Overlays";
 import { useRunner } from "@/components/ui/useRunner";
 import type { ActionResult } from "@/lib/action";
-import { OFFICE_ADDRESS, PLACES, REASONS } from "@/lib/crm/constants";
+import { OFFICE, OFFICE_ADDRESS, REASONS } from "@/lib/crm/constants";
 import { LATER, dayFull, fT, laterDate, laterLabel, meetDays, pad, slotsFor, sod, addDays, timeWarning, WD } from "@/lib/crm/dates";
 import { firstName } from "./bits";
 
@@ -25,7 +25,8 @@ import { firstName } from "./bits";
 const dayKey = (x: Date) => x.getFullYear() + "-" + pad(x.getMonth() + 1) + "-" + pad(x.getDate());
 const sameLocal = (a: Date, b: Date) => dayKey(a) === dayKey(b);
 
-export type SheetLead = { id: string; name: string; phoneRaw: string; projectName: string };
+/** The lead a sheet works on. `meeting` is its next meeting, when it has one (for the WhatsApp message with the details). */
+export type SheetLead = { id: string; name: string; phoneRaw: string; projectName: string; meeting?: { startAt: string; hostName: string | null } | null };
 type Done = () => void;
 
 function Opt({ icon, tone, title, sub, onClick, disabled }: { icon: IconName; tone?: "good" | "warn" | "bad"; title: string; sub: string; onClick: () => void; disabled?: boolean }) {
@@ -182,17 +183,38 @@ export function BookingStep({
   const [day, setDay] = useState<string | null>(start);
   const [time, setTime] = useState<string | null>(start && initialTime ? initialTime : null);
   const [other, setOther] = useState(!!(start && initialTime && !startSlots.includes(initialTime)));
-  const [place, setPlace] = useState(PLACES[0].value);
   const d = day ? days.find((x) => dayKey(x) === day) ?? null : null;
   const times = d ? slotsFor(d) : [];
   const warn = timeWarning(d, time);
   const ready = !!(d && time);
-  const placeLabel = PLACES.find((p) => p.value === place)?.label ?? place;
+  const drawer = useDrawer();
+  const runner = useRunner();
+  const [saving, setSaving] = useState(false);
+  const [booked, setBooked] = useState<{ startAt: string; hostName: string | null } | null>(null);
 
-  function save() {
+  async function save() {
     if (!d || !time) return;
-    finish(meetingId ? moveMeetingAction(meetingId, dayKey(d), time) : bookMeetingAction(lead.id, dayKey(d), time, place, direct));
+    if (meetingId) return finish(moveMeetingAction(meetingId, dayKey(d), time));
+    if (saving) return;
+    setSaving(true);
+    const r = await runner(bookMeetingAction(lead.id, dayKey(d), time, direct));
+    setSaving(false);
+    // booked: offer to send the details on WhatsApp before closing
+    if (r.ok && r.data) setBooked(r.data);
   }
+
+  if (booked)
+    return (
+      <MeetingBooked
+        lead={lead}
+        start={new Date(booked.startAt)}
+        hostName={booked.hostName}
+        onClose={() => {
+          drawer.close();
+          onDone?.();
+        }}
+      />
+    );
 
   return (
     <div className="sheet-body">
@@ -239,22 +261,10 @@ export function BookingStep({
           )}
         </>
       )}
-      {!meetingId && (
-        <>
-          <p className="q">איפה?</p>
-          <div className="chips">
-            {PLACES.map((p) => (
-              <button key={p.value} type="button" className={place === p.value ? "on" : ""} aria-pressed={place === p.value} onClick={() => setPlace(p.value)}>
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
       <div className="sheet-foot">
-        <button type="button" className="bigbtn call" disabled={!ready || busy} onClick={save}>
+        <button type="button" className="bigbtn call" disabled={!ready || busy || saving} onClick={save}>
           <Icon name="cal" />
-          <span>{ready && d ? `${meetingId ? "מועד חדש" : "לקבוע"}: ${(sameLocal(d, sod(new Date())) ? "היום, " : sameLocal(d, addDays(sod(new Date()), 1)) ? "מחר, " : "") + WD[d.getDay()] + " " + d.getDate() + "." + (d.getMonth() + 1)}, ${time}${meetingId ? "" : ", " + placeLabel}` : d ? "בוחרים שעה" : "בוחרים יום ושעה"}</span>
+          <span>{ready && d ? `${meetingId ? "מועד חדש" : "לקבוע"}: ${(sameLocal(d, sod(new Date())) ? "היום, " : sameLocal(d, addDays(sod(new Date()), 1)) ? "מחר, " : "") + WD[d.getDay()] + " " + d.getDate() + "." + (d.getMonth() + 1)}, ${time}` : d ? "בוחרים שעה" : "בוחרים יום ושעה"}</span>
         </button>
       </div>
     </div>
@@ -321,10 +331,64 @@ export function waLink(phoneRaw: string, text: string): string {
   return `https://wa.me/${phoneRaw.replace(/\D/g, "")}?text=${encodeURIComponent(text)}`;
 }
 
+/** The meeting's details and the office address, one per line, ready for WhatsApp. */
+export function meetingMessage(lead: Pick<SheetLead, "name" | "projectName">, start: Date, hostName?: string | null): string {
+  return [
+    `היי ${firstName(lead.name)}, כאן מקבוצת מיתר. אלה פרטי הפגישה שלנו:`,
+    "",
+    `מתי: יום ${WD[start.getDay()]} ${start.getDate()}.${start.getMonth() + 1} בשעה ${fT(start)}`,
+    `איפה: ${OFFICE.address}`,
+    ...(lead.projectName ? [`בנושא: ${lead.projectName}`] : []),
+    ...(hostName ? [`נפגשים עם: ${hostName}`] : []),
+    "",
+    `ניווט בוויז: ${OFFICE.waze}`,
+    "",
+    "לכל שאלה אפשר לכתוב לנו כאן. נתראה!",
+  ].join("\n");
+}
+
+/** Right after booking: the details are ready to go out on WhatsApp, from the person's own phone. */
+function MeetingBooked({ lead, start, hostName, onClose }: { lead: SheetLead; start: Date; hostName: string | null; onClose: () => void }) {
+  const drawer = useDrawer();
+  const runner = useRunner();
+  const text = meetingMessage(lead, start, hostName);
+  useEffect(() => {
+    drawer.retitle("הפגישה נקבעה");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <div className="sheet-body">
+      <p className="confirm-q">
+        הפגישה עם {firstName(lead.name)} נקבעה ל{dayFull(start)} בשעה {fT(start)}.
+      </p>
+      <p className="muted">לשלוח עכשיו את הפרטים והכתובת בוואטסאפ?</p>
+      <div className="wa-preview">{text}</div>
+      <a
+        className="bigbtn wa"
+        href={waLink(lead.phoneRaw, text)}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => {
+          runner(logWhatsAppAction(lead.id, text), { quiet: true });
+          onClose();
+        }}
+      >
+        <Icon name="wa" />
+        לשלוח את הפרטים בוואטסאפ
+      </a>
+      <button type="button" className="bigbtn light" onClick={onClose}>
+        לא עכשיו
+      </button>
+    </div>
+  );
+}
+
 export function readyMessages(lead: SheetLead): [string, string][] {
   const fn = firstName(lead.name);
   const p = lead.projectName || "הפרויקט";
+  const next = lead.meeting ? new Date(lead.meeting.startAt) : null;
   return [
+    ...(next ? ([["פרטי הפגישה", meetingMessage(lead, next, lead.meeting?.hostName)]] as [string, string][]) : []),
     [`פרטים על ${p}`, `היי ${fn}, כאן מקבוצת מיתר. שולחים לך את כל הפרטים על ${p}. נשמח לענות על כל שאלה.`],
     ["ניסינו להשיג אותך", `היי ${fn}, ניסינו להשיג אותך בקשר ל${p}. מתי נוח לך שנחזור?`],
     ["מיקום המשרד", OFFICE_ADDRESS],

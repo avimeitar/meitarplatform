@@ -24,7 +24,7 @@ export async function GET(req: Request) {
   // the same view, search and filters as the screen the button was pressed on
   const { where } = leadsQuery(u, Object.fromEntries(new URL(req.url).searchParams));
   const rows = await prisma.lead.findMany({ where, orderBy: { createdAt: "desc" }, take: 50_000, include: { project: { select: { name: true } }, owner: { select: { name: true } } } });
-  const head = ["שם", "טלפון", "אימייל", "פרויקט", "מקור הגעה", "סטטוס", "סיבה", "סוכן", "נוצר", "מתי לחזור", "ניסיונות בלי מענה", "אישור דיוור"];
+  const head = ["שם", "טלפון", "אימייל", "פרויקט", "מקור הגעה", "סטטוס", "סיבה", "מנהל לקוח", "נוצר", "מתי לחזור", "ניסיונות בלי מענה", "אישור דיוור"];
   const lines = [head.join(",")];
   for (const l of rows)
     lines.push(

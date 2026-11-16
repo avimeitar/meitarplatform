@@ -15,7 +15,7 @@ export const metadata = { title: "פרויקטים" };
 const GROUPS: { label: string; color: string; statuses: LeadStatus[] }[] = [
   { label: "פתוחים", color: "var(--c1)", statuses: ["new", "process", "noans"] },
   { label: "בפגישות", color: "var(--c2)", statuses: ["meet", "resched", "held"] },
-  { label: "המשך טיפול", color: "var(--c3)", statuses: ["follow"] },
+  { label: "המשך טיפול לאחר פגישה", color: "var(--c3)", statuses: ["follow"] },
   { label: "נחתמו", color: "var(--c4)", statuses: ["won"] },
 ];
 
@@ -102,7 +102,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
               return (
                 <Link key={r.id} className={"pcard" + (open ? " on" : "")} href={toggleHref(r.id, open)} aria-current={open ? "true" : undefined}>
                   <h3>{r.fullName}</h3>
-                  <span className="place">{r.place}</span>
+                  {r.place && <span className="place">{r.place}</span>}
                   <div className="pstats">
                     <div>
                       <b>{r.leads}</b>
@@ -152,7 +152,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
                 <li key={p.id}>
                   <div>
                     <b>{p.fullName}</b>
-                    <small>{p.place}</small>
+                    {p.place && <small>{p.place}</small>}
                   </div>
                   <ReactivateProjectButton project={p} />
                 </li>
@@ -173,7 +173,7 @@ function ProjectDetail({ p, breakdown, manage }: { p: ProjectSummary; breakdown:
         <div>
           <h2 id="rp-detail-h">{p.fullName}</h2>
           <p className="muted">
-            {p.place} ·{" "}
+            {p.place ? `${p.place} · ` : ""}
             {p.leads === 1 ? (
               "ליד אחד"
             ) : (
@@ -196,10 +196,10 @@ function ProjectDetail({ p, breakdown, manage }: { p: ProjectSummary; breakdown:
       <div className="grid-2">
         <div className="panel">
           <div className="panel-head">
-            <h3>לפי סוכן</h3>
+            <h3>לפי מנהל לקוח</h3>
             <span className="muted">לפי מי שהליד משויך אליו</span>
           </div>
-          <Breakdown first="סוכן" rows={breakdown.byOwner} people />
+          <Breakdown first="מנהל לקוח" rows={breakdown.byOwner} people />
         </div>
         <div className="panel">
           <div className="panel-head">

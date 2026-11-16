@@ -29,7 +29,7 @@ export function DealsFilters({ agents, projects, agent, project }: { agents: Opt
   return (
     <div className="toolbar" data-pending={pending ? "" : undefined} aria-busy={pending || undefined}>
       <label className="sel">
-        <span className="sr">סוכן</span>
+        <span className="sr">מנהל לקוח</span>
         <select value={view.agent} onChange={(e) => change({ agent: e.target.value })}>
           <option value="">כל הצוות</option>
           {agents.map((a) => (

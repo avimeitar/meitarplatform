@@ -28,6 +28,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
   ]);
   const data: LeadCardData = {
     id: l.id,
+    renderedAt: new Date().toISOString(),
     name: l.name,
     phone: formatPhone(l.phone),
     phoneRaw: l.phone,

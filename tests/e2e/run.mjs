@@ -127,6 +127,11 @@ try {
     ok("the save button reads the booking back", (await p.locator(".drawer .sheet-foot .bigbtn").textContent()).startsWith("לקבוע:"));
     await p.click(".drawer .sheet-foot .bigbtn");
     ok("meeting booked", (await toast(p)).includes("נקבעה"));
+    await p.waitForSelector(".drawer .wa-preview");
+    const waHref = (await p.locator(".drawer a.bigbtn.wa").getAttribute("href")) || "";
+    ok("after booking, the details and address are ready for WhatsApp", waHref.startsWith("https://wa.me/") && (await p.locator(".drawer .wa-preview").innerText()).includes("דרך רבין"));
+    ok("booking has no place to choose: every meeting is at the office", !(await p.locator('.drawer :text("איפה?")').count()));
+    await p.click('.drawer button:has-text("לא עכשיו")');
   } else ok("queue has leads (seed demo data first)", false);
   await p.goto(`${BASE}/leads`);
   ok("agents get five simple views", (await p.locator(".views .view").count()) === 5);
@@ -134,13 +139,15 @@ try {
   await p.click(".leads tbody tr >> nth=0");
   await p.waitForURL(/\/leads\/[^/?]+$/);
   ok("lead card has no sideways scroll", (await overflow(p)) <= 0);
+  ok("the lead's history entries don't overlap", await p.evaluate(() => [...document.querySelectorAll(".timeline .ev")].every((e) => getComputedStyle(e).position === "relative")));
+  ok("the composer tabs are note, task, meeting, WhatsApp", (await p.locator(".ctabs button").allInnerTexts()).map((t) => t.trim()).join(",") === "הערה,משימה,תיאום פגישה,וואטסאפ");
   await p.click('.metro button:has-text("נחתמה עסקה")');
   await p.waitForSelector(".drawer");
   ok("a signed deal asks first", (await p.locator(".drawer h2").textContent()).includes("לסמן"));
   await p.click('.drawer button:has-text("עוד לא")');
   await p.goto(`${BASE}/meetings`);
   ok("meetings open as a calendar", (await p.locator(".cal").count()) === 1);
-  const ev = p.locator(".cal-col.sel .ev, .mev").first();
+  const ev = p.locator(".cal-col.sel .cev, .mev").first();
   if (await ev.count()) {
     await ev.click();
     await p.waitForSelector(".drawer .mdetail", { timeout: 10000 }).catch(() => {});
