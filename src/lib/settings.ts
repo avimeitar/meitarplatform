@@ -17,6 +17,23 @@ export async function setFlag(key: string, value: boolean): Promise<void> {
   await prisma.setting.upsert({ where: { key }, create: { key, value }, update: { value } });
 }
 
+/** Who meets the clients: a booked meeting is with this person, and the client moves to them. */
+export const MEETING_HOST = "meetings.defaultHost";
+
+/** The default person for meetings, if one is set and still active. */
+export async function defaultMeetingHost(): Promise<string | null> {
+  const row = await prisma.setting.findUnique({ where: { key: MEETING_HOST } });
+  const id = typeof row?.value === "string" ? row.value : null;
+  if (!id) return null;
+  const u = await prisma.user.findFirst({ where: { id, active: true, deletedAt: null }, select: { id: true } });
+  return u?.id ?? null;
+}
+
+export async function setDefaultMeetingHost(userId: string | null): Promise<void> {
+  if (!userId) await prisma.setting.deleteMany({ where: { key: MEETING_HOST } });
+  else await prisma.setting.upsert({ where: { key: MEETING_HOST }, create: { key: MEETING_HOST, value: userId }, update: { value: userId } });
+}
+
 export const requireCode = () => getFlag(REQUIRE_CODE, false);
 export const signInLocked = () => getFlag(LOCKED, false);
 

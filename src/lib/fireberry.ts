@@ -190,7 +190,10 @@ export function readFireberryMeetings(text: string): FbMeeting[] {
 export function mapMeetingStatus(s: string): MeetingStatus {
   const v = s.trim().replace(/\s+/g, " ");
   if (v === "התקימה" || v === "התקיימה" || v === "בוצעה" || v === "הושלמה" || v === "המשך טיפול לאחר פגישה" || /^נקבעה פגישה שני/.test(v)) return "held";
-  if (/בוטל|לא הגיע|הבריז|נדח/.test(v)) return "cancel";
+  // didn't come; postponed; cancelled
+  if (/לא הגיע|הבריז|אי הגעה|אי-הגעה/.test(v)) return "noshow";
+  if (/נדח|לתאם מחדש|תיאום מחדש/.test(v)) return "resched";
+  if (/בוטל/.test(v)) return "cancel";
   return "set";
 }
 

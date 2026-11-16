@@ -10,9 +10,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const cfg = authConfigured();
   if (!cfg.ok) return <SetupNotice missing={cfg.missing} />;
   const user = await requirePageUser();
-  const { counts, projects, people, shift } = await shellData(user);
+  const { counts, projects, people, shift, meetingHost } = await shellData(user);
   return (
-    <Shell user={{ id: user.id, name: user.name, firstName: user.firstName, roleName: user.roleName, permissions: user.permissions }} counts={counts} projects={projects} people={people} shift={shift}>
+    <Shell user={{ id: user.id, name: user.name, firstName: user.firstName, roleName: user.roleName, permissions: user.permissions }} counts={counts} projects={projects} people={people} shift={shift} meetingHost={meetingHost}>
       {children}
     </Shell>
   );

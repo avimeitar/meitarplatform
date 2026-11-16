@@ -150,14 +150,22 @@ try {
   const ev = p.locator(".cal-col.sel .cev, .mev").first();
   if (await ev.count()) {
     await ev.click();
-    await p.waitForSelector(".drawer .mdetail", { timeout: 10000 }).catch(() => {});
-    ok("a meeting on the calendar opens its details", (await p.locator(".drawer .mdetail .md-kv").count()) === 1);
-    await p.keyboard.press("Escape");
+    await p.waitForURL(/\/meetings\/[^/?]+$/, { timeout: 10000 }).catch(() => {});
+    await p.waitForSelector(".meeting-card", { timeout: 10000 }).catch(() => {});
+    ok("a meeting on the calendar opens its own card", (await p.locator(".meeting-card .mstates button").count()) === 6);
+    ok("the meeting card has no sideways scroll", (await overflow(p)) <= 0);
+    if (await p.locator(".mc-note textarea").count()) {
+      // fresh text each run, so the save button is never left disabled by an earlier run
+      await p.fill(".mc-note textarea", `להביא תוכניות של הדירה (${Date.now() % 100000})`);
+      await p.click('.mc-note button:has-text("שמירת התיאור")');
+      ok("a meeting's description is saved", (await toast(p)).includes("נשמרו"));
+    }
   }
   await p.goto(`${BASE}/meetings?view=list`);
-  const setRow = p.locator('.mtable tbody tr:has(.mseg button.on.m-set)').first();
+  ok("the meetings list has status tabs with counts", (await p.locator(".mviews .view").count()) === 7);
+  const setRow = p.locator(".mtable tbody tr:has(.msel.m-set)").first();
   if (await setRow.count()) {
-    await setRow.locator('.mseg button:has-text("התקיימה")').click();
+    await setRow.locator(".msel select").selectOption("held");
     ok("meeting marked held", (await toast(p)).includes("התקיימה"));
   }
   await p.goto(`${BASE}/tasks`);

@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { dayFull, fT, sameDay, sod } from "@/lib/crm/dates";
 import type { AgendaItem } from "@/lib/crm/views";
-import { initials, LeadLink, MeetingPill, nOf } from "./bits";
+import { MeetingStatePill } from "./MeetingState";
+import { initials, nOf } from "./bits";
 
 export function Agenda({ items }: { items: AgendaItem[] }) {
   const now = new Date();
@@ -31,9 +33,13 @@ export function Agenda({ items }: { items: AgendaItem[] }) {
               {list.map((m) => (
                 <li key={m.id}>
                   <time>{fT(new Date(m.startAt))}</time>
-                  <LeadLink id={m.leadId} name={m.leadName} sub={[m.projectName, m.place].filter(Boolean).join(", ")} />
-                  {m.status === "held" ? (
-                    <MeetingPill status="held" />
+                  {/* the meeting card, with the client one click further */}
+                  <Link className="lk" href={`/meetings/${m.id}`}>
+                    <b>{m.leadName}</b>
+                    <small>{[m.projectName, m.place].filter(Boolean).join(", ")}</small>
+                  </Link>
+                  {m.status !== "set" ? (
+                    <MeetingStatePill status={m.status} confirmed={m.confirmed} />
                   ) : (
                     <span className={"cf-ic" + (m.confirmed ? " on" : "")} title={m.confirmed ? "הגעה אושרה" : "הגעה לא אושרה"}>
                       <Icon name="cc" />

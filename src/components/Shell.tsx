@@ -8,6 +8,7 @@ import { Icon, type IconName } from "@/components/Icon";
 import { useDrawer, Overlays } from "@/components/ui/Overlays";
 import { NewLeadForm, type PersonOption, type ProjectOption } from "@/components/leads/NewLeadForm";
 import { ShiftButton, type ShiftInfo } from "@/components/hours/ShiftButton";
+import { ShellDataProvider } from "@/components/ShellData";
 import type { Permission } from "@/lib/permissions";
 
 // Opens the "new lead" form from anywhere (for example from an empty search, with the number filled in).
@@ -204,10 +205,13 @@ function ShellInner({ user, counts, projects, people, shift, children }: { user:
   );
 }
 
-export function Shell(props: { user: ShellUser; counts: NavCounts; projects: ProjectOption[]; people: PersonOption[]; shift: ShiftInfo; children: ReactNode }) {
+export function Shell(props: { user: ShellUser; counts: NavCounts; projects: ProjectOption[]; people: PersonOption[]; shift: ShiftInfo; meetingHost: string | null; children: ReactNode }) {
+  // above the overlays, so sheets opened in the drawer can read it too
   return (
-    <Overlays>
-      <ShellInner {...props} />
-    </Overlays>
+    <ShellDataProvider value={{ meId: props.user.id, people: props.people, meetingHost: props.meetingHost }}>
+      <Overlays>
+        <ShellInner {...props} />
+      </Overlays>
+    </ShellDataProvider>
   );
 }

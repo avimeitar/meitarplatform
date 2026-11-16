@@ -31,7 +31,7 @@ export async function agendaFor(where: Prisma.MeetingWhereInput, now = new Date(
   const today = sod(now);
   const until = addDays(nextWorkday(now), 1);
   const rows = await prisma.meeting.findMany({
-    where: { AND: [where, { status: { not: "cancel" } }, { startAt: { gte: today, lt: until } }] },
+    where: { AND: [where, { status: { notIn: ["cancel", "resched"] } }, { startAt: { gte: today, lt: until } }] },
     orderBy: { startAt: "asc" },
     include: { lead: { select: { name: true } }, project: { select: { name: true } }, host: { select: { name: true } } },
   });

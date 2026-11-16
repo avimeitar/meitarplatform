@@ -7,7 +7,11 @@ import { prisma } from "@/lib/db";
 import { shiftMinutes } from "@/lib/hours";
 import { isSystemAdminRole } from "@/lib/settings";
 import { addDays, at, DAY, fD, isWorkday, MON, monthStart, pad, sod, WD, weekStart } from "./dates";
+import { NOT_HELD } from "./constants";
 import { PERIODS, ratio, type PeriodKey } from "./perfFormat";
+
+/** A meeting that was due and did not take place: cancelled, no-show, or to be rescheduled. */
+const NOT_HELD_SET = new Set<string>(NOT_HELD);
 
 // ---------------------------------------------------------------- the period
 
@@ -270,7 +274,7 @@ function meetStats(rows: MeetRow[], r: Range, now: Date) {
     if (inRange(m.createdAt, r)) s.set++;
     if (!inRange(m.startAt, due)) continue;
     if (m.status === "held") s.held++;
-    else if (m.status === "cancel") s.canceled++;
+    else if (NOT_HELD_SET.has(m.status)) s.canceled++;
     else s.unmarked++;
   }
   return s;
@@ -485,7 +489,7 @@ export async function performance(p: Period, f: PerfFilter, now = new Date()): P
     if (inRange(m.createdAt, r)) row.set++;
     if (!inRange(m.startAt, due)) continue;
     if (m.status === "held") row.held++;
-    else if (m.status === "cancel") row.canceled++;
+    else if (NOT_HELD_SET.has(m.status)) row.canceled++;
     else row.unmarked++;
   }
   for (const d of dealsBy) {

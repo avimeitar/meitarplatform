@@ -1,11 +1,10 @@
 "use client";
 
-import { confirmMeetingAction, meetingStatusAction } from "@/app/actions/leads";
-import { Icon, type IconName } from "@/components/Icon";
-import { LeadLink, nOf, Owner } from "@/components/crm/bits";
+import Link from "next/link";
+import { Icon } from "@/components/Icon";
+import { MeetingStateSelect } from "@/components/crm/MeetingState";
+import { nOf, Owner } from "@/components/crm/bits";
 import { useLeadSheets } from "@/components/crm/Sheets";
-import { useRunner } from "@/components/ui/useRunner";
-import { MS, type MeetingStatus } from "@/lib/crm/constants";
 import { dayFull, fT, iso } from "@/lib/crm/dates";
 
 export type MeetingRowData = { id: string; leadId: string | null; leadName: string; phoneRaw: string; projectName: string; subject: string; startAt: string; place: string; status: string; confirmed: boolean; setByName: string | null; hostName: string | null; canEdit: boolean };
@@ -21,7 +20,6 @@ export function NewMeetingButton() {
 }
 
 export function MeetingsList({ rows }: { rows: MeetingRowData[] }) {
-  const runner = useRunner();
   if (!rows.length)
     return (
       <div className="panel">
@@ -48,13 +46,12 @@ export function MeetingsList({ rows }: { rows: MeetingRowData[] }) {
             <th>נקבעה ע״י</th>
             <th>נפגשים עם</th>
             <th>סטטוס</th>
-            <th>אישור הגעה</th>
           </tr>
         </thead>
         <tbody>
           {days.map((g) => [
             <tr key={g.key} className="grp">
-              <td colSpan={8}>
+              <td colSpan={7}>
                 <div className="grp-h">
                   <span>{dayFull(g.date)}</span>
                   <small>{nOf(g.list.length, "פגישה אחת", "פגישות")}</small>
@@ -65,7 +62,11 @@ export function MeetingsList({ rows }: { rows: MeetingRowData[] }) {
               <tr key={m.id} className={m.hostName ? undefined : "no-host"}>
                 <td className="c-time">{fT(new Date(m.startAt))}</td>
                 <td className="c-lead">
-                  <LeadLink id={m.leadId} name={m.leadName} sub={[m.projectName, m.subject && m.subject !== m.projectName ? m.subject : "", m.place].filter(Boolean).join(", ")} />
+                  {/* the meeting card: its own page, with the client one click further */}
+                  <Link className="lk" href={`/meetings/${m.id}`}>
+                    <b>{m.leadName}</b>
+                    <small>{[m.projectName, m.subject && m.subject !== m.projectName ? m.subject : "", m.place].filter(Boolean).join(", ")}</small>
+                  </Link>
                 </td>
                 <td className="c-proj">{m.projectName}</td>
                 <td className="c-place">{m.place || <span className="muted">—</span>}</td>
@@ -76,25 +77,7 @@ export function MeetingsList({ rows }: { rows: MeetingRowData[] }) {
                   <Owner name={m.hostName} />
                 </td>
                 <td className="c-st">
-                  <div className="mseg" role="group" aria-label="סטטוס הפגישה">
-                    {(["set", "cancel", "held"] as MeetingStatus[]).map((s) => {
-                      const on = m.status === s;
-                      return (
-                        <button key={s} type="button" className={on ? "on " + MS[s].c : ""} aria-pressed={on} disabled={!m.canEdit} onClick={() => !on && runner(meetingStatusAction(m.id, s))}>
-                          <Icon name={MS[s].icon as IconName} />
-                          {MS[s].l}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </td>
-                <td className="c-st">
-                  {m.status === "set" && (
-                    <button type="button" className={"cfm" + (m.confirmed ? " on" : "")} aria-pressed={m.confirmed} disabled={!m.canEdit} onClick={() => runner(confirmMeetingAction(m.id, !m.confirmed))}>
-                      <Icon name="cc" />
-                      {m.confirmed ? "הגעה אושרה" : "לאשר הגעה"}
-                    </button>
-                  )}
+                  <MeetingStateSelect m={m} disabled={!m.canEdit} />
                 </td>
               </tr>
             )),

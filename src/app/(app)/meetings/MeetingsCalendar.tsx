@@ -1,12 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { confirmMeetingAction, meetingStatusAction } from "@/app/actions/leads";
-import { Icon, type IconName } from "@/components/Icon";
+import { Icon } from "@/components/Icon";
 import { useLeadSheets } from "@/components/crm/Sheets";
-import { useDrawer } from "@/components/ui/Overlays";
-import { useRunner } from "@/components/ui/useRunner";
 import { MS, type MeetingStatus } from "@/lib/crm/constants";
 import { dayFull, fT, iso, pad, wall, WD } from "@/lib/crm/dates";
 
@@ -102,7 +100,7 @@ function stale(m: CalMeeting, now: number) {
 }
 
 export function MeetingsCalendar(p: CalendarProps) {
-  const drawer = useDrawer();
+  const router = useRouter();
   const sheets = useLeadSheets();
   const [now, setNow] = useState<number | null>(null);
   // the time is only known in the browser: the "now" line and past slots wait for it
@@ -121,8 +119,9 @@ export function MeetingsCalendar(p: CalendarProps) {
     return map;
   }, [p.meetings]);
 
+  // a meeting opens its own card
   function open(m: CalMeeting) {
-    drawer.open({ title: m.name, content: <MeetingDetails m={m} />, sheet: true });
+    router.push(`/meetings/${m.id}`);
   }
 
   /** a tap on a free spot books a meeting there, on the half hour */
@@ -338,83 +337,6 @@ function MonthGrid({ days, month, todayKey, byDay, open, dayHref }: CalendarProp
           );
         })}
       </div>
-    </div>
-  );
-}
-
-/** Everything about one meeting, and what can be done with it, without leaving the calendar. */
-function MeetingDetails({ m }: { m: CalMeeting }) {
-  const runner = useRunner();
-  const drawer = useDrawer();
-  const sheets = useLeadSheets();
-  const [busy, setBusy] = useState(false);
-  const d = new Date(m.startAt);
-  const past = d.getTime() < Date.now();
-  async function act(p: ReturnType<typeof meetingStatusAction>) {
-    if (busy) return;
-    setBusy(true);
-    const r = await runner(p);
-    setBusy(false);
-    if (r.ok) drawer.close();
-  }
-  const rows: [string, string][] = [
-    ["מתי", `${dayFull(d)} בשעה ${fT(d)}`],
-    ["איפה", m.place || "לא צוין"],
-    ["פרויקט", m.projectName || "לא צוין"],
-    ...(m.subject && m.subject !== m.projectName ? ([["נושא", m.subject]] as [string, string][]) : []),
-    ["נקבעה ע״י", m.setByName ?? "לא ידוע"],
-    ["נפגשים עם", m.hostName ?? (m.person !== m.setByName ? m.person : "לא שויך")],
-    ...(m.source ? ([["מקור הגעה", m.source]] as [string, string][]) : []),
-    ...(m.note ? ([["הערה", m.note]] as [string, string][]) : []),
-  ];
-  return (
-    <div className="sheet-body mdetail">
-      <p className={"md-status " + (MS[m.status as MeetingStatus]?.c ?? "")}>
-        <Icon name={(MS[m.status as MeetingStatus]?.icon ?? "cal") as IconName} />
-        {MS[m.status as MeetingStatus]?.l ?? m.status}
-        {m.status === "set" ? (m.confirmed ? ". ההגעה אושרה" : past ? ". עוד לא סומן מה קרה" : ". ההגעה עוד לא אושרה") : ""}
-      </p>
-      <dl className="kv md-kv">
-        {rows.map(([k, v]) => (
-          <div key={k}>
-            <dt>{k}</dt>
-            <dd>{v}</dd>
-          </div>
-        ))}
-      </dl>
-      {m.canEdit && (
-        <>
-          <p className="q">סטטוס פגישה</p>
-          <div className="mseg big" role="group" aria-label="סטטוס הפגישה">
-            {(["set", "cancel", "held"] as MeetingStatus[]).map((s) => {
-              const on = m.status === s;
-              return (
-                <button key={s} type="button" className={on ? "on " + MS[s].c : ""} aria-pressed={on} disabled={busy} onClick={() => !on && act(meetingStatusAction(m.id, s))}>
-                  <Icon name={MS[s].icon as IconName} />
-                  {MS[s].l}
-                </button>
-              );
-            })}
-          </div>
-          <div className="md-acts">
-            {m.status === "set" && !past && (
-              <button type="button" className={"cfm" + (m.confirmed ? " on" : "")} aria-pressed={m.confirmed} disabled={busy} onClick={() => act(confirmMeetingAction(m.id, !m.confirmed))}>
-                <Icon name="cc" />
-                {m.confirmed ? "הגעה אושרה" : "לאשר הגעה"}
-              </button>
-            )}
-            <button type="button" className="btn" disabled={busy} onClick={() => sheets.book({ id: m.leadId ?? "", name: m.name, phoneRaw: m.phoneRaw, projectName: m.projectName }, { meetingId: m.id })}>
-              <Icon name="cal" />
-              שינוי מועד
-            </button>
-          </div>
-        </>
-      )}
-      {m.leadId && (
-        <Link className="btn full" href={`/leads/${m.leadId}`} onClick={() => drawer.close()}>
-          לכרטיס הליד
-        </Link>
-      )}
     </div>
   );
 }

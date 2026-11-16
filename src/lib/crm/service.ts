@@ -263,7 +263,8 @@ export function meetingWhen(d: Date): string {
 export async function bookMeeting(tx: Tx, rec: Recorder, leadId: string, by: By, m: { start: Date; place: string; direct: boolean; hostId?: string | null }) {
   await lockLead(tx, leadId);
   const lead = await tx.lead.findUniqueOrThrow({ where: { id: leadId } });
-  const meeting = await tx.meeting.create({ data: { leadId, projectId: lead.projectId, startAt: m.start, place: m.place, status: "set", setById: by.id, hostId: m.hostId ?? by.id } });
+  const hostId = m.hostId ?? by.id;
+  const meeting = await tx.meeting.create({ data: { leadId, projectId: lead.projectId, startAt: m.start, place: m.place, status: "set", setById: by.id, hostId } });
   rec.created("meeting", meeting.id);
   if (!m.direct) await addActivity(tx, rec, leadId, { kind: "call", text: "שיחה יוצאת: היה מענה", userId: by.id });
   await addActivity(tx, rec, leadId, { kind: "meeting", text: `נקבעה פגישה ל${meetingWhen(m.start)}, ${m.place}`, userId: by.id });
@@ -271,6 +272,8 @@ export async function bookMeeting(tx: Tx, rec: Recorder, leadId: string, by: By,
   // a signed deal stays signed: a meeting after it (signing, handover) doesn't change the lead
   if (lead.status !== "won") await setLeadStatus(tx, rec, leadId, "meet", by.id, { auto: "עודכן אוטומטית מהפגישה" });
   await closeOpenTasks(tx, rec, leadId);
+  // whoever meets the client manages the client from now on; the one who booked stays recorded as having set the meeting
+  if (hostId !== lead.ownerId) await assignLead(tx, rec, leadId, hostId, by);
   return meeting;
 }
 
@@ -309,7 +312,7 @@ export async function setMeetingStatus(tx: Tx, rec: Recorder, meetingId: string,
   const first = meetingClient(m).split(/\s+/)[0];
   if (!m.leadId || !m.lead) return (m.clientName ? `הפגישה עם ${first}` : "הפגישה") + ` סומנה ״${MS[st].l}״`;
   const lead = m.lead;
-  const word = st === "held" ? "התקיימה" : st === "cancel" ? "בוטלה" : "נקבעה מחדש";
+  const word = st === "held" ? "התקיימה" : st === "cancel" ? "בוטלה" : st === "set" ? "נקבעה מחדש" : `סומנה ״${MS[st].l}״`;
   await addActivity(tx, rec, lead.id, { kind: "meeting", text: `הפגישה של ${meetingWhen(m.startAt)} ${word}`, userId: by.id });
   // the reminder from the earlier outcome no longer applies (a reversed "held" or "cancel" leaves nothing behind)
   await voidAutoTasks(tx, rec, lead.id, ["follow", "resched"]);
@@ -328,16 +331,18 @@ export async function setMeetingStatus(tx: Tx, rec: Recorder, meetingId: string,
     if (m.startAt > new Date()) await setLead(tx, rec, lead.id, { nextAt: m.startAt });
     return `הפגישה עם ${first} חזרה ל״${MS.set.l}״`;
   }
-  if (lead.status === "lost") return `הפגישה עם ${first} בוטלה`;
+  // cancelled, no-show, or to be rescheduled: the meeting did not take place, so the lead needs a new date
+  const what = st === "cancel" ? `הפגישה עם ${first} בוטלה` : `הפגישה עם ${first} סומנה ״${MS[st].l}״`;
+  if (lead.status === "lost") return what;
   const other = await tx.meeting.count({ where: { leadId: lead.id, id: { not: m.id }, status: "set", startAt: { gte: new Date() } } });
   if (!other) {
     await setLeadStatus(tx, rec, lead.id, "resched", by.id, { auto: "עודכן אוטומטית מהפגישה" });
     const due = at(nextWorkday(), 10);
     await addTask(tx, rec, { leadId: lead.id, userId: lead.ownerId ?? m.setById ?? by.id, title: `לתאם מחדש פגישה עם ${lead.name}`, dueAt: due, auto: "resched", createdById: by.id });
     await setLead(tx, rec, lead.id, { nextAt: due });
-    return `הפגישה עם ${first} בוטלה. הליד עבר ל״לתאם מחדש״ ונוצרה משימה`;
+    return `${what}. הליד עבר ל״לתאם מחדש״ ונוצרה משימה`;
   }
-  return `הפגישה עם ${first} בוטלה`;
+  return what;
 }
 
 // ---------------------------------------------------------------- tasks

@@ -14,6 +14,7 @@ import {
   setLeadStatusAction,
 } from "@/app/actions/leads";
 import { Icon, type IconName } from "@/components/Icon";
+import { useShellData } from "@/components/ShellData";
 import { useDrawer } from "@/components/ui/Overlays";
 import { useRunner } from "@/components/ui/useRunner";
 import type { ActionResult } from "@/lib/action";
@@ -26,7 +27,7 @@ const dayKey = (x: Date) => x.getFullYear() + "-" + pad(x.getMonth() + 1) + "-" 
 const sameLocal = (a: Date, b: Date) => dayKey(a) === dayKey(b);
 
 /** The lead a sheet works on. `meeting` is its next meeting, when it has one (for the WhatsApp message with the details). */
-export type SheetLead = { id: string; name: string; phoneRaw: string; projectName: string; meeting?: { startAt: string; hostName: string | null } | null };
+export type SheetLead = { id: string; name: string; phoneRaw: string; projectName: string; ownerId?: string | null; meeting?: { startAt: string; hostName: string | null } | null };
 type Done = () => void;
 
 function Opt({ icon, tone, title, sub, onClick, disabled }: { icon: IconName; tone?: "good" | "warn" | "bad"; title: string; sub: string; onClick: () => void; disabled?: boolean }) {
@@ -189,6 +190,10 @@ export function BookingStep({
   const ready = !!(d && time);
   const drawer = useDrawer();
   const runner = useRunner();
+  const shell = useShellData();
+  // who meets the client: the person set for meetings, else whoever books
+  const [host, setHost] = useState(shell.meetingHost ?? shell.meId);
+  const hostName = shell.people.find((p) => p.id === host)?.name ?? "";
   const [saving, setSaving] = useState(false);
   const [booked, setBooked] = useState<{ startAt: string; hostName: string | null } | null>(null);
 
@@ -197,7 +202,7 @@ export function BookingStep({
     if (meetingId) return finish(moveMeetingAction(meetingId, dayKey(d), time));
     if (saving) return;
     setSaving(true);
-    const r = await runner(bookMeetingAction(lead.id, dayKey(d), time, direct));
+    const r = await runner(bookMeetingAction(lead.id, dayKey(d), time, direct, host || null));
     setSaving(false);
     // booked: offer to send the details on WhatsApp before closing
     if (r.ok && r.data) setBooked(r.data);
@@ -260,6 +265,19 @@ export function BookingStep({
             </p>
           )}
         </>
+      )}
+      {!meetingId && shell.people.length > 1 && (
+        <label className="fld host-pick">
+          <span>נפגשים עם</span>
+          <select value={host} onChange={(e) => setHost(e.target.value)}>
+            {shell.people.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.id === shell.meId ? `${p.name} (אני)` : p.name}
+              </option>
+            ))}
+          </select>
+          {lead.ownerId !== undefined && host !== lead.ownerId && hostName && <small>הלקוח יעבור ל{hostName}, שינהל אותו מעכשיו</small>}
+        </label>
       )}
       <div className="sheet-foot">
         <button type="button" className="bigbtn call" disabled={!ready || busy || saving} onClick={save}>

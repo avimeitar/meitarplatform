@@ -17,13 +17,35 @@ export const MAIN: LeadStatus[] = ["new", "process", "meet", "held", "follow", "
 export const OPEN_STATUSES: LeadStatus[] = ["new", "process", "noans", "meet", "resched", "held", "follow"];
 export const isLeadStatus = (s: string): s is LeadStatus => Object.prototype.hasOwnProperty.call(ST, s);
 
+/** A meeting's status as stored. "set" with the arrival confirmed shows as "אושרה הגעה" (see MEETING_STATES). */
 export const MS = {
   set: { l: "נקבעה", c: "m-set", icon: "cal" },
-  cancel: { l: "בוטלה", c: "m-cancel", icon: "x" },
   held: { l: "התקיימה", c: "m-held", icon: "check" },
+  noshow: { l: "אי-הגעה", c: "m-noshow", icon: "phone-x" },
+  cancel: { l: "בוטלה", c: "m-cancel", icon: "x" },
+  resched: { l: "לתאם מחדש", c: "m-resched", icon: "repeat" },
 } as const;
 export type MeetingStatus = keyof typeof MS;
-export const isMeetingStatus = (s: string): s is MeetingStatus => s === "set" || s === "cancel" || s === "held";
+export const isMeetingStatus = (s: string): s is MeetingStatus => Object.prototype.hasOwnProperty.call(MS, s);
+/** Statuses of a meeting that did not take place. */
+export const NOT_HELD: MeetingStatus[] = ["noshow", "cancel", "resched"];
+
+/** What people pick and see: the stored statuses, with "נקבעה" split by whether the arrival was confirmed. */
+export const MEETING_STATES = {
+  set: { l: "נקבעה", c: "m-set", icon: "cal" },
+  confirmed: { l: "אושרה הגעה", c: "m-ok", icon: "cc" },
+  held: { l: "התקיימה", c: "m-held", icon: "check" },
+  noshow: { l: "אי-הגעה", c: "m-noshow", icon: "phone-x" },
+  cancel: { l: "בוטלה", c: "m-cancel", icon: "x" },
+  resched: { l: "לתאם מחדש", c: "m-resched", icon: "repeat" },
+} as const;
+export type MeetingState = keyof typeof MEETING_STATES;
+export const MEETING_STATE_ORDER: MeetingState[] = ["set", "confirmed", "held", "noshow", "cancel", "resched"];
+export const isMeetingState = (s: string): s is MeetingState => Object.prototype.hasOwnProperty.call(MEETING_STATES, s);
+export function meetingState(m: { status: string; confirmed: boolean }): MeetingState {
+  if (m.status === "set") return m.confirmed ? "confirmed" : "set";
+  return isMeetingState(m.status) ? m.status : "set";
+}
 
 /** Who a meeting is with: its lead, or the name kept on the meeting itself (imported history, or a lead that was deleted). */
 export function meetingClient(m: { lead?: { name: string } | null; clientName?: string | null }): string {

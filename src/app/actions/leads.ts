@@ -4,13 +4,14 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { run, type ActionResult } from "@/lib/action";
 import { audit } from "@/lib/audit";
-import { isLeadStatus, isMeetingStatus, MANUAL_SOURCES, meetingClient, OFFICE, REASONS } from "@/lib/crm/constants";
+import { isLeadStatus, isMeetingState, isMeetingStatus, MANUAL_SOURCES, MEETING_STATES, meetingClient, OFFICE, REASONS } from "@/lib/crm/constants";
 import { LATER, laterDate, laterLabel, type LaterKey } from "@/lib/crm/dates";
 import * as crm from "@/lib/crm/service";
 import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/phone";
 import { leadScope } from "@/lib/crm/views";
 import { ActionError, can, requestIp, requireActionUser, type CurrentUser } from "@/lib/session";
+import { defaultMeetingHost } from "@/lib/settings";
 import { withUndo } from "@/lib/undo";
 
 const by = (u: CurrentUser) => ({ id: u.id, name: u.name });
@@ -127,16 +128,21 @@ export async function lostAction(leadId: string, reason: string, fromCall = true
 }
 
 /** Every meeting is at the office. Returns what the screen needs for the WhatsApp message with the details. */
-export async function bookMeetingAction(leadId: string, day: string, time: string, direct: boolean): Promise<ActionResult<{ meetingId: string; startAt: string; hostName: string | null }>> {
+export async function bookMeetingAction(leadId: string, day: string, time: string, direct: boolean, hostId?: string | null): Promise<ActionResult<{ meetingId: string; startAt: string; hostName: string | null }>> {
   return run(async () => {
     const u = await requireActionUser("leads.edit");
     const lead = await leadFor(u, leadId);
     const start = parseSlot(day, time);
-    const { result: m, undoId } = await withUndo(u.id, "קביעת פגישה", (tx, rec) => crm.bookMeeting(tx, rec, lead.id, by(u), { start, place: OFFICE.place, direct }));
+    // the meeting is with the person picked, else the one set for meetings, else whoever booked it
+    const picked = hostId ? await prisma.user.findFirst({ where: { id: String(hostId), active: true, deletedAt: null }, select: { id: true } }) : null;
+    if (hostId && !picked) throw new ActionError("מי שנבחר לפגישה לא פעיל במערכת", "host");
+    const host = picked?.id ?? (await defaultMeetingHost()) ?? u.id;
+    const { result: m, undoId } = await withUndo(u.id, "קביעת פגישה", (tx, rec) => crm.bookMeeting(tx, rec, lead.id, by(u), { start, place: OFFICE.place, direct, hostId: host }));
     refresh();
-    const host = m.hostId ? await prisma.user.findUnique({ where: { id: m.hostId }, select: { name: true } }) : null;
+    const hostUser = m.hostId ? await prisma.user.findUnique({ where: { id: m.hostId }, select: { name: true } }) : null;
     const { dayLabel, fT } = await import("@/lib/crm/dates");
-    return { message: `הפגישה עם ${lead.name.split(/\s+/)[0]} נקבעה ל${dayLabel(start)} ב-${fT(start)}`, undoId, data: { meetingId: m.id, startAt: start.toISOString(), hostName: host?.name ?? null } };
+    const moved = m.hostId && m.hostId !== lead.ownerId && hostUser ? `. הלקוח עבר ל${hostUser.name}` : "";
+    return { message: `הפגישה עם ${lead.name.split(/\s+/)[0]} נקבעה ל${dayLabel(start)} ב-${fT(start)}${moved}`, undoId, data: { meetingId: m.id, startAt: start.toISOString(), hostName: hostUser?.name ?? null } };
   });
 }
 
@@ -170,6 +176,61 @@ export async function meetingStatusAction(meetingId: string, status: string): Pr
     const { result, undoId } = await withUndo(u.id, "עדכון סטטוס פגישה", (tx, rec) => crm.setMeetingStatus(tx, rec, m.id, status, by(u)));
     refresh();
     return { message: result || "לא היה מה לשנות", undoId };
+  });
+}
+
+/**
+ * One of the six states people pick: נקבעה, אושרה הגעה, התקיימה, אי-הגעה, בוטלה, לתאם מחדש.
+ * "אושרה הגעה" is a meeting that is still set, with the arrival confirmed.
+ */
+export async function meetingStateAction(meetingId: string, state: string): Promise<ActionResult> {
+  return run(async () => {
+    const u = await requireActionUser("leads.edit");
+    if (!isMeetingState(state)) throw new ActionError("סטטוס לא מוכר");
+    const m = await meetingFor(u, meetingId);
+    const { result, undoId } = await withUndo(u.id, "עדכון סטטוס פגישה", async (tx, rec) => {
+      if (state !== "set" && state !== "confirmed") return crm.setMeetingStatus(tx, rec, m.id, state, by(u));
+      const moved = await crm.setMeetingStatus(tx, rec, m.id, "set", by(u));
+      await crm.confirmMeeting(tx, rec, m.id, by(u), state === "confirmed");
+      return moved || `הפגישה סומנה ״${MEETING_STATES[state].l}״`;
+    });
+    refresh();
+    return { message: result || "לא היה מה לשנות", undoId };
+  });
+}
+
+const meetingEdit = z.object({
+  note: z.string().max(2000, "התיאור ארוך מדי. אפשר עד 2000 תווים").optional(),
+  projectId: z.string().nullable().optional(),
+  hostId: z.string().nullable().optional(),
+});
+
+/** The meeting card's own details: its description, project, and who meets the client (the client moves to them). */
+export async function updateMeetingAction(meetingId: string, input: z.input<typeof meetingEdit>): Promise<ActionResult> {
+  return run(async () => {
+    const u = await requireActionUser("leads.edit");
+    const m = await meetingFor(u, meetingId);
+    const d = meetingEdit.parse(input);
+    const data: { note?: string | null; projectId?: string | null; hostId?: string } = {};
+    if (d.note !== undefined && d.note.trim() !== (m.note ?? "")) data.note = d.note.trim() || null;
+    if (d.projectId !== undefined && (d.projectId || null) !== m.projectId) {
+      if (d.projectId && !(await prisma.project.findUnique({ where: { id: d.projectId }, select: { id: true } }))) throw new ActionError("הפרויקט לא נמצא", "projectId");
+      data.projectId = d.projectId || null;
+    }
+    if (d.hostId !== undefined && d.hostId && d.hostId !== m.hostId) {
+      const host = await prisma.user.findFirst({ where: { id: d.hostId, active: true, deletedAt: null }, select: { id: true } });
+      if (!host) throw new ActionError("מי שנבחר לפגישה לא פעיל במערכת", "hostId");
+      data.hostId = host.id;
+    }
+    if (!Object.keys(data).length) return { message: "הפרטים נשמרו" };
+    const { undoId } = await withUndo(u.id, "עדכון פרטי פגישה", async (tx, rec) => {
+      await rec.before("meeting", m.id, Object.keys(data));
+      await tx.meeting.update({ where: { id: m.id }, data });
+      // the person meeting the client manages the client
+      if (data.hostId && m.leadId) await crm.assignLead(tx, rec, m.leadId, data.hostId, by(u));
+    });
+    refresh();
+    return { message: data.hostId ? (m.leadId ? "נשמר. הפגישה והלקוח עברו למי שנבחר" : "נשמר. הפגישה עברה למי שנבחר") : "הפרטים נשמרו", undoId };
   });
 }
 

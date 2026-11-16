@@ -214,6 +214,30 @@ d("CRM rules on a real database", () => {
     expect(r.sources[0]).toMatchObject({ key: SRC, leads: 5, won: 0, topReason: "מספר לא תקין" });
   });
 
+  it("a no-show sends the lead back to ״לתאם מחדש״ with a task, like a cancelled meeting", async () => {
+    const { leadId } = await newLead("+972500000401");
+    const start = new Date(Date.now() - 3600_000);
+    const { result: m } = await undo.withUndo(by.id, "book", (tx, rec) => crm.bookMeeting(tx, rec, leadId, by, { start, place: "משרד, פתח תקווה", direct: true }));
+    const msg = (await undo.withUndo(by.id, "noshow", (tx, rec) => crm.setMeetingStatus(tx, rec, m.id, "noshow", by))).result;
+    expect(msg).toContain("אי-הגעה");
+    expect((await prisma.meeting.findUniqueOrThrow({ where: { id: m.id } })).status).toBe("noshow");
+    expect((await prisma.lead.findUniqueOrThrow({ where: { id: leadId } })).status).toBe("resched");
+    expect(await prisma.task.count({ where: { leadId, auto: "resched", done: false } })).toBe(1);
+  });
+
+  it("booking a meeting with someone else moves the client to them; the booker stays as the one who set it", async () => {
+    const role = await prisma.role.findFirstOrThrow({ where: { key: "agent" } });
+    const closer = await prisma.user.create({ data: { id: "u-closer", name: "דרור בדיקה", email: "closer@users.meitar.invalid", roleId: role.id } });
+    const { leadId } = await newLead("+972500000402");
+    expect((await prisma.lead.findUniqueOrThrow({ where: { id: leadId } })).ownerId).not.toBe(closer.id);
+    const start = new Date(Date.now() + 86400_000);
+    const { result: m } = await undo.withUndo(by.id, "book", (tx, rec) => crm.bookMeeting(tx, rec, leadId, by, { start, place: "משרד, פתח תקווה", direct: true, hostId: closer.id }));
+    expect(m.setById).toBe(by.id);
+    expect(m.hostId).toBe(closer.id);
+    expect((await prisma.lead.findUniqueOrThrow({ where: { id: leadId } })).ownerId).toBe(closer.id);
+    expect(await prisma.leadAssignment.count({ where: { leadId, userId: closer.id } })).toBe(1);
+  });
+
   it("only the person who made a change can undo it", async () => {
     const { leadId } = await newLead("+972500000105");
     const { undoId } = await undo.withUndo(by.id, "note", (tx, rec) => crm.addActivity(tx, rec, leadId, { kind: "note", text: "x" }));

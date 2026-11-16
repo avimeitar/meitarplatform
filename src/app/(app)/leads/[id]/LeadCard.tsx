@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { addNoteAction, addTaskAction, assignLeadAction, confirmMeetingAction, deleteLeadAction, logWhatsAppAction, meetingStatusAction, setLeadStatusAction, updateLeadAction } from "@/app/actions/leads";
+import { addNoteAction, addTaskAction, assignLeadAction, deleteLeadAction, logWhatsAppAction, setLeadStatusAction, updateLeadAction } from "@/app/actions/leads";
 import { Icon, type IconName } from "@/components/Icon";
+import { MeetingStateSelect } from "@/components/crm/MeetingState";
 import { firstName, initials, StatusPill } from "@/components/crm/bits";
 import { readyMessages, useLeadSheets, waLink, type SheetLead } from "@/components/crm/Sheets";
 import { TaskList, type TaskItem } from "@/components/crm/TaskList";
 import { useToast } from "@/components/ui/Overlays";
 import { useRunner } from "@/components/ui/useRunner";
-import { MAIN, MS, REASONS, ST, type LeadStatus, type MeetingStatus } from "@/lib/crm/constants";
+import { MAIN, REASONS, ST, type LeadStatus } from "@/lib/crm/constants";
 import { addDays, dayFull, dayLabel, fD, fT, iso, nextWorkday, relTime, sod } from "@/lib/crm/dates";
 
 export type Activity = { id: string; kind: string; direction: string | null; text: string; auto: string | null; tags: string[]; userName: string | null; createdAt: string };
@@ -54,7 +55,7 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
   const [confirmDelete, setConfirmDelete] = useState(false);
   // the next meeting, for the WhatsApp message with its details
   const next = lead.meetings.filter((m) => m.status === "set" && new Date(m.startAt).getTime() > Date.parse(lead.renderedAt)).sort((a, b) => a.startAt.localeCompare(b.startAt))[0];
-  const sl: SheetLead = { id: lead.id, name: lead.name, phoneRaw: lead.phoneRaw, projectName: lead.projectName, meeting: next ? { startAt: next.startAt, hostName: next.hostName } : null };
+  const sl: SheetLead = { id: lead.id, name: lead.name, phoneRaw: lead.phoneRaw, projectName: lead.projectName, ownerId: lead.ownerId, meeting: next ? { startAt: next.startAt, hostName: next.hostName } : null };
   const fn = firstName(lead.name);
   const status = lead.status as LeadStatus;
   const mi = MAIN.indexOf(status);
@@ -301,7 +302,6 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
 }
 
 function MeetingRow({ m, lead, canEdit }: { m: MeetingItem; lead: SheetLead; canEdit: boolean }) {
-  const runner = useRunner();
   const sheets = useLeadSheets();
   const d = new Date(m.startAt);
   return (
@@ -317,28 +317,15 @@ function MeetingRow({ m, lead, canEdit }: { m: MeetingItem; lead: SheetLead; can
         {m.hostName ? `נפגשים עם ${m.hostName}` : ""}
       </small>
       <div className="mi-acts">
-        <div className="mseg" role="group" aria-label="סטטוס הפגישה">
-          {(["set", "cancel", "held"] as MeetingStatus[]).map((s) => {
-            const on = m.status === s;
-            return (
-              <button key={s} type="button" className={on ? "on " + MS[s].c : ""} aria-pressed={on} disabled={!canEdit} onClick={() => !on && runner(meetingStatusAction(m.id, s))}>
-                <Icon name={MS[s].icon as IconName} />
-                {MS[s].l}
-              </button>
-            );
-          })}
-        </div>
-        {m.status === "set" && (
-          <button type="button" className={"cfm" + (m.confirmed ? " on" : "")} aria-pressed={m.confirmed} disabled={!canEdit} onClick={() => runner(confirmMeetingAction(m.id, !m.confirmed))}>
-            <Icon name="cc" />
-            {m.confirmed ? "הגעה אושרה" : "לאשר הגעה"}
-          </button>
-        )}
-        {canEdit && m.status === "set" && (
+        <MeetingStateSelect m={m} disabled={!canEdit} />
+        {canEdit && (m.status === "set" || m.status === "resched") && (
           <button type="button" className="link" onClick={() => sheets.book(lead, { meetingId: m.id })}>
             שינוי מועד
           </button>
         )}
+        <Link className="link" href={`/meetings/${m.id}`}>
+          לכרטיס הפגישה
+        </Link>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
 import { Icon } from "@/components/Icon";
-import { meetingClient } from "@/lib/crm/constants";
+import { isMeetingState, MEETING_STATE_ORDER, MEETING_STATES, meetingClient, meetingState, NOT_HELD, type MeetingState } from "@/lib/crm/constants";
 import { addDays, dayLabel, iso, MON, monthStart, nextWorkday, sod, WD, weekStart } from "@/lib/crm/dates";
 import { prisma } from "@/lib/db";
 import { can, requirePageUser, type CurrentUser } from "@/lib/session";
@@ -48,7 +48,7 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
     const [up, held, cancel] = await Promise.all([
       prisma.meeting.count({ where: { status: "set", startAt: { gte: now } } }),
       prisma.meeting.count({ where: { status: "held", startAt: { gte: since, lt: addDays(today, 1) } } }),
-      prisma.meeting.count({ where: { status: "cancel", startAt: { gte: since, lt: addDays(today, 1) } } }),
+      prisma.meeting.count({ where: { status: { in: NOT_HELD }, startAt: { gte: since, lt: addDays(today, 1) } } }),
     ]);
     kpis = { upcoming: up, held, cancel };
   }
@@ -59,7 +59,7 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
       <div className="page-head">
         <div>
           <h1>פגישות</h1>
-          <p className="sub">אחרי כל פגישה מסמנים מה קרה: התקיימה או בוטלה. אם הפגישה שייכת לליד, הוא מתעדכן לבד.</p>
+          <p className="sub">אחרי כל פגישה מסמנים מה קרה: התקיימה, אי-הגעה, בוטלה או לתאם מחדש. אם הפגישה שייכת לליד, הוא מתעדכן לבד.</p>
         </div>
         <div className="head-actions">
           <div className="seg" role="group" aria-label="תצוגה">
@@ -86,7 +86,7 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
             <b>{kpis.held}</b>
           </div>
           <div className="kpi">
-            <span>בוטלו ב-30 יום</span>
+            <span>לא התקיימו ב-30 יום</span>
             <b>{kpis.cancel}</b>
           </div>
           <div className="kpi">
@@ -265,7 +265,7 @@ async function CalendarView({ u, sp, who, scope, mineWhere, now }: ViewArgs) {
         dayHref={dayHref}
       />
       <p className="cal-hint">
-        {mode !== "month" && can(u, "leads.edit") ? "לחיצה על שעה פנויה ביומן קובעת בה פגישה. " : ""}לחיצה על פגישה מראה את כל הפרטים.
+        {mode !== "month" && can(u, "leads.edit") ? "לחיצה על שעה פנויה ביומן קובעת בה פגישה. " : ""}לחיצה על פגישה פותחת את כרטיס הפגישה.
         {mode === "week" && who === "all" ? " לחיצה על שם היום פותחת את היום עם עמודה לכל איש צוות." : ""}
       </p>
     </>
@@ -288,12 +288,25 @@ async function ListView({ u, sp, who, scope, mineWhere, now, manager }: ViewArgs
   const range = RANGES.find((r) => r[0] === sp.range) ?? RANGES.find((r) => r[0] === "upcoming")!;
   const q = (sp.q ?? "").trim().slice(0, 60);
   const limit = Math.min(2000, Math.max(STEP, Number(sp.limit) || STEP));
+  // the status tabs, like the leads list: "אושרה הגעה" is a set meeting with the arrival confirmed
+  const st: MeetingState | null = sp.st && isMeetingState(sp.st) ? sp.st : null;
+  const stateWhere = (s: MeetingState): Prisma.MeetingWhereInput => (s === "set" ? { status: "set", confirmed: false } : s === "confirmed" ? { status: "set", confirmed: true } : { status: s });
+  const base: Prisma.MeetingWhereInput = { AND: [scope, range[2], who === "mine" ? mineWhere : {}] };
   // a search looks through every meeting this person may see, at any date
   const where: Prisma.MeetingWhereInput = q
     ? { AND: [scope, { OR: [{ clientName: { contains: q, mode: "insensitive" } }, { lead: { name: { contains: q, mode: "insensitive" } } }, { subject: { contains: q, mode: "insensitive" } }] }] }
-    : { AND: [scope, range[2], who === "mine" ? mineWhere : {}, sp.status ? { status: sp.status } : {}] };
+    : st
+      ? { AND: [base, stateWhere(st)] }
+      : base;
   const asc = !q && range[0] !== "past";
-  const [rows, total] = await Promise.all([prisma.meeting.findMany({ where, orderBy: { startAt: asc ? "asc" : "desc" }, take: limit, include }), prisma.meeting.count({ where })]);
+  const [rows, total, byState] = await Promise.all([
+    prisma.meeting.findMany({ where, orderBy: { startAt: asc ? "asc" : "desc" }, take: limit, include }),
+    prisma.meeting.count({ where }),
+    q ? Promise.resolve([]) : prisma.meeting.groupBy({ by: ["status", "confirmed"], where: base, _count: { _all: true } }),
+  ]);
+  const counts = Object.fromEntries(MEETING_STATE_ORDER.map((s) => [s, 0])) as Record<MeetingState, number>;
+  for (const g of byState) counts[meetingState(g)] += g._count._all;
+  const all = MEETING_STATE_ORDER.reduce((n, s) => n + counts[s], 0);
   const data: MeetingRowData[] = rows.map((m) => ({
     id: m.id,
     leadId: m.leadId,
@@ -309,9 +322,24 @@ async function ListView({ u, sp, who, scope, mineWhere, now, manager }: ViewArgs
     hostName: m.host?.name ?? null,
     canEdit: canEditMeeting(u, m),
   }));
-  const href = (extra: Record<string, string>) => `/meetings?${new URLSearchParams({ view: "list", range: range[0], who, ...extra })}`;
+  const href = (extra: Record<string, string>) => {
+    const p = new URLSearchParams(Object.entries({ view: "list", range: range[0], who, st: st ?? "", ...extra }).filter(([, v]) => v));
+    return `/meetings?${p}`;
+  };
   return (
     <>
+      {!q && (
+        <div className="views mviews" role="group" aria-label="סטטוס הפגישה">
+          <Link className={"view" + (!st ? " on" : "")} href={href({ st: "" })} aria-current={!st ? "page" : undefined}>
+            הכול <b>{all}</b>
+          </Link>
+          {MEETING_STATE_ORDER.map((s) => (
+            <Link key={s} className={"view " + MEETING_STATES[s].c + (st === s ? " on" : "")} href={href({ st: s })} aria-current={st === s ? "page" : undefined}>
+              {MEETING_STATES[s].l} <b>{counts[s]}</b>
+            </Link>
+          ))}
+        </div>
+      )}
       <div className="toolbar">
         {!q && (
           <div className="seg" role="group" aria-label="מתי">

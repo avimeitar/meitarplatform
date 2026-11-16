@@ -35,6 +35,9 @@ describe("reading Fireberry exports", () => {
     expect(mapMeetingStatus("המשך טיפול לאחר פגישה")).toBe("held");
     expect(mapMeetingStatus("נקבעה פגישה שנייה")).toBe("held");
     expect(mapMeetingStatus("בוטלה")).toBe("cancel");
+    expect(mapMeetingStatus("לא הגיע")).toBe("noshow");
+    expect(mapMeetingStatus("הבריז")).toBe("noshow");
+    expect(mapMeetingStatus("נדחתה")).toBe("resched");
     expect(mapMeetingStatus("תואמה")).toBe("set");
     expect(mapMeetingStatus("")).toBe("set");
   });
