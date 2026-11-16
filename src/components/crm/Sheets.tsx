@@ -14,11 +14,11 @@ import {
   setLeadStatusAction,
 } from "@/app/actions/leads";
 import { Icon, type IconName } from "@/components/Icon";
-import { useShellData } from "@/components/ShellData";
+import { useLists, useShellData } from "@/components/ShellData";
 import { useDrawer } from "@/components/ui/Overlays";
 import { useRunner } from "@/components/ui/useRunner";
 import type { ActionResult } from "@/lib/action";
-import { OFFICE, OFFICE_ADDRESS, REASONS } from "@/lib/crm/constants";
+import { OFFICE, OFFICE_ADDRESS } from "@/lib/crm/constants";
 import { LATER, dayFull, fT, laterDate, laterLabel, meetDays, pad, slotsFor, sod, addDays, timeWarning, WD } from "@/lib/crm/dates";
 import { firstName } from "./bits";
 
@@ -79,6 +79,7 @@ export function OutcomeSheet({ lead, meetingId, onDone }: { lead: SheetLead; mee
   const drawer = useDrawer();
   const [step, setStep] = useState<Step>("1");
   const { finish, busy } = useFinish(onDone);
+  const { reasons } = useLists();
   const fn = firstName(lead.name);
 
   useEffect(() => {
@@ -114,7 +115,7 @@ export function OutcomeSheet({ lead, meetingId, onDone }: { lead: SheetLead; mee
       <div className="sheet-body">
         <Back onClick={() => setStep("1")} />
         <div className="chips">
-          {REASONS.map((r) => (
+          {reasons.map((r) => (
             <button key={r} type="button" disabled={busy} onClick={() => finish(lostAction(lead.id, r, true))}>
               {r}
             </button>

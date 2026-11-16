@@ -63,6 +63,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   "hours.device_removed": "הסרת טלפון מחתימת שעות העבודה",
   "hours.corrected": "תיקון שעות עבודה",
   "hours.export": "ייצוא שעות עבודה לשכר",
+  "settings.lists": "עריכת רשימות והגדרות",
   "lead.bulk_assign": "העברת כמה לידים",
   "apikey.create": "יצירת מפתח לקליטת לידים",
   "apikey.revoke": "ביטול מפתח לקליטת לידים",

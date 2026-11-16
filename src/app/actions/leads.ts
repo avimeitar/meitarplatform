@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { run, type ActionResult } from "@/lib/action";
 import { audit } from "@/lib/audit";
-import { isLeadStatus, isMeetingState, isMeetingStatus, isTaskState, MANUAL_SOURCES, MEETING_STATES, meetingClient, OFFICE, REASONS, TASK_STATES } from "@/lib/crm/constants";
+import { isLeadStatus, isMeetingState, isMeetingStatus, isTaskState, meetingClient, OFFICE } from "@/lib/crm/constants";
+import { getLists } from "@/lib/lists";
 import { LATER, laterDate, laterLabel, type LaterKey } from "@/lib/crm/dates";
 import * as crm from "@/lib/crm/service";
 import { prisma } from "@/lib/db";
@@ -76,7 +77,7 @@ export async function createLeadAction(input: z.input<typeof newLeadSchema>): Pr
       if (!target) throw new ActionError("מנהל הלקוח שנבחר לא פעיל", "owner");
       owner = target.id;
     }
-    const source = MANUAL_SOURCES.includes(data.source) ? data.source : "אחר";
+    const source = (await getLists()).sources.includes(data.source) ? data.source : "אחר";
     const { result, undoId } = await withUndo(u.id, "הוספת ליד", (tx, rec) =>
       crm.createOrMergeLead(tx, rec, { name: data.name, phone, email: data.email || null, source, projectId: project.id, owner, consent: data.consent }, by(u)),
     );
@@ -120,7 +121,7 @@ export async function lostAction(leadId: string, reason: string, fromCall = true
   return run(async () => {
     const u = await requireActionUser("leads.edit");
     const lead = await leadFor(u, leadId);
-    const r = REASONS.includes(reason) ? reason : "אחר";
+    const r = (await getLists()).reasons.some((x) => x.label === reason) ? reason : "אחר";
     const { result, undoId } = await withUndo(u.id, "סימון ״לא רלוונטי״", (tx, rec) => crm.logLost(tx, rec, lead.id, by(u), r, fromCall));
     refresh();
     return { message: result, undoId };
@@ -192,7 +193,7 @@ export async function meetingStateAction(meetingId: string, state: string): Prom
       if (state !== "set" && state !== "confirmed") return crm.setMeetingStatus(tx, rec, m.id, state, by(u));
       const moved = await crm.setMeetingStatus(tx, rec, m.id, "set", by(u));
       await crm.confirmMeeting(tx, rec, m.id, by(u), state === "confirmed");
-      return moved || `הפגישה סומנה ״${MEETING_STATES[state].l}״`;
+      return moved || `הפגישה סומנה ״${(await getLists()).meeting[state]}״`;
     });
     refresh();
     return { message: result || "לא היה מה לשנות", undoId };
@@ -247,7 +248,7 @@ export async function setLeadStatusAction(leadId: string, status: string, reason
       return { message: result, undoId };
     }
     if (status === "lost") {
-      const r = REASONS.includes(reason ?? "") ? (reason as string) : "אחר";
+      const r = (await getLists()).reasons.some((x) => x.label === reason) ? (reason as string) : "אחר";
       const { result, undoId } = await withUndo(u.id, "סימון ״לא רלוונטי״", (tx, rec) => crm.logLost(tx, rec, lead.id, by(u), r, false));
       refresh();
       return { message: result, undoId };
@@ -436,7 +437,7 @@ export async function taskStateAction(taskId: string, state: string): Promise<Ac
     if (t.userId !== u.id && t.leadId) await leadFor(u, t.leadId);
     const { undoId } = await withUndo(u.id, "עדכון סטטוס משימה", (tx, rec) => crm.setTaskState(tx, rec, t.id, state, by(u)));
     refresh();
-    return { message: `${t.title}: ${TASK_STATES[state].l}`, undoId };
+    return { message: `${t.title}: ${(await getLists()).task[state]}`, undoId };
   });
 }
 

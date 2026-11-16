@@ -4,6 +4,7 @@ import { Icon } from "@/components/Icon";
 import { isMeetingState, MEETING_STATE_ORDER, MEETING_STATES, meetingClient, meetingState, NOT_HELD, type MeetingState } from "@/lib/crm/constants";
 import { addDays, dayLabel, iso, MON, monthStart, nextWorkday, sod, WD, weekStart } from "@/lib/crm/dates";
 import { prisma } from "@/lib/db";
+import { getLists } from "@/lib/lists";
 import { can, requirePageUser, type CurrentUser } from "@/lib/session";
 import { CalendarFilters } from "./CalendarFilters";
 import { MeetingsCalendar, type CalMeeting } from "./MeetingsCalendar";
@@ -304,6 +305,7 @@ async function ListView({ u, sp, who, scope, mineWhere, now, manager }: ViewArgs
     prisma.meeting.count({ where }),
     q ? Promise.resolve([]) : prisma.meeting.groupBy({ by: ["status", "confirmed"], where: base, _count: { _all: true } }),
   ]);
+  const names = (await getLists()).meeting;
   const counts = Object.fromEntries(MEETING_STATE_ORDER.map((s) => [s, 0])) as Record<MeetingState, number>;
   for (const g of byState) counts[meetingState(g)] += g._count._all;
   const all = MEETING_STATE_ORDER.reduce((n, s) => n + counts[s], 0);
@@ -335,7 +337,7 @@ async function ListView({ u, sp, who, scope, mineWhere, now, manager }: ViewArgs
           </Link>
           {MEETING_STATE_ORDER.map((s) => (
             <Link key={s} className={"view " + MEETING_STATES[s].c + (st === s ? " on" : "")} href={href({ st: s })} aria-current={st === s ? "page" : undefined}>
-              {MEETING_STATES[s].l} <b>{counts[s]}</b>
+              {names[s]} <b>{counts[s]}</b>
             </Link>
           ))}
         </div>

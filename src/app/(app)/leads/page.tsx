@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
 import { Icon } from "@/components/Icon";
-import { ST, ST_ORDER, MANUAL_SOURCES } from "@/lib/crm/constants";
+import { ST, ST_ORDER } from "@/lib/crm/constants";
+import { getLists } from "@/lib/lists";
 import { fD } from "@/lib/crm/dates";
 import { createdRange, leadsQuery, VIEWS } from "@/lib/crm/leadViews";
 import { prisma } from "@/lib/db";
@@ -50,7 +51,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const fcount = [sp.project, sp.source, sp.status, manager ? sp.owner : undefined].filter(Boolean).length;
   const range = createdRange(sp);
   const rangeText = range.from && range.to ? (range.from.getTime() === range.to.getTime() ? `ב-${fD(range.from)}` : `בין ${fD(range.from)} ל-${fD(range.to)}`) : range.from ? `מ-${fD(range.from)}` : range.to ? `עד ${fD(range.to)}` : "";
-  const sources = [...new Set([...MANUAL_SOURCES, "טאבולה", "כתבה ממומנת", ...(sp.source ? [sp.source] : [])])];
+  const sources = [...new Set([...(await getLists()).sources, "טאבולה", "כתבה ממומנת", ...(sp.source ? [sp.source] : [])])];
   const showFilters = manager || sp.filters === "1";
 
   return (

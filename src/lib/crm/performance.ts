@@ -9,6 +9,7 @@ import { isSystemAdminRole } from "@/lib/settings";
 import { addDays, at, DAY, fD, isWorkday, MON, monthStart, pad, sod, WD, weekStart } from "./dates";
 import { NOT_HELD } from "./constants";
 import { PERIODS, ratio, type PeriodKey } from "./perfFormat";
+import { getLists } from "@/lib/lists";
 
 /** A meeting that was due and did not take place: cancelled, no-show, or to be rescheduled. */
 const NOT_HELD_SET = new Set<string>(NOT_HELD);
@@ -142,8 +143,8 @@ const TALKED_STATUSES = new Set(["meet", "resched", "held", "follow", "won", "lo
  *  unreached — called or written to, but never got through;
  *  untreated — nobody has called or written yet.
  */
-export function leadFate(l: { status: string; lostReason: string | null; touch: Date | null; met: boolean; talked: boolean }): LeadFate {
-  if (l.status === "lost" && l.lostReason && JUNK.has(l.lostReason)) return "junk";
+export function leadFate(l: { status: string; lostReason: string | null; touch: Date | null; met: boolean; talked: boolean }, junk: Set<string> = JUNK): LeadFate {
+  if (l.status === "lost" && l.lostReason && junk.has(l.lostReason)) return "junk";
   if (l.met || l.talked || TALKED_STATUSES.has(l.status)) return "relevant";
   if (l.status === "noans" || l.touch) return "unreached";
   if (l.status === "new") return "untreated";
@@ -296,11 +297,11 @@ export type Mix = {
   topReason: string | null;
 };
 
-function mixOf(rows: CohortRow[]): Mix {
+function mixOf(rows: CohortRow[], junk: Set<string>): Mix {
   const m: Mix = { leads: rows.length, untreated: 0, unreached: 0, junk: 0, relevant: 0, dropped: 0, met: 0, held: 0, won: 0, topReason: null };
   const reasons = new Map<string, number>();
   for (const l of rows) {
-    const fate = leadFate(l);
+    const fate = leadFate(l, junk);
     m[fate]++;
     if (fate === "relevant" && l.status === "lost") m.dropped++;
     if (l.status === "lost") reasons.set(l.lostReason || "בלי סיבה", (reasons.get(l.lostReason || "בלי סיבה") ?? 0) + 1);
@@ -330,14 +331,14 @@ export type Tiles = {
   responseOf: number;
 };
 
-async function tilesFor(r: Range, f: PerfFilter, now: Date, rows?: CohortRow[], meets?: MeetRow[]): Promise<Tiles> {
+async function tilesFor(r: Range, f: PerfFilter, now: Date, junk: Set<string>, rows?: CohortRow[], meets?: MeetRow[]): Promise<Tiles> {
   const [c, m, back, deals] = await Promise.all([
     rows ?? cohort(r, f),
     meets ?? meetingsOf(r, f),
     returning(r, f),
     prisma.lead.count({ where: { ...leadWhere(f), status: "won", closedAt: { gte: r.start, lt: r.end } } }),
   ]);
-  const mix = mixOf(c);
+  const mix = mixOf(c, junk);
   const ms = meetStats(m, r, now);
   const waits = c.filter((l) => l.touch).map((l) => workMinutes(l.createdAt, l.touch as Date));
   return {
@@ -440,8 +441,10 @@ export async function performance(p: Period, f: PerfFilter, now = new Date()): P
     prisma.user.findMany({ select: { id: true, name: true, active: true, deletedAt: true, role: { select: { locked: true, permissions: true } } } }),
     prisma.project.findMany({ select: { id: true, name: true } }),
   ]);
-  const [tiles, prev] = await Promise.all([tilesFor(r, f, now, rows, meets), tilesFor(p.prev, f, now)]);
-  const mix = mixOf(rows);
+  // the reasons a manager marked as "the lead was never real"
+  const junk = new Set((await getLists()).reasons.filter((x) => x.junk).map((x) => x.label));
+  const [tiles, prev] = await Promise.all([tilesFor(r, f, now, junk, rows, meets), tilesFor(p.prev, f, now, junk)]);
+  const mix = mixOf(rows, junk);
 
   // ---- people: agents and sales managers, not system administrators
   const reps = new Map<string, RepRow>();
@@ -511,7 +514,7 @@ export async function performance(p: Period, f: PerfFilter, now = new Date()): P
     const by = new Map<string, CohortRow[]>();
     for (const l of rows) by.set(key(l), [...(by.get(key(l)) ?? []), l]);
     return [...by]
-      .map(([k, list]) => ({ key: k, label: label(k), ...mixOf(list) }))
+      .map(([k, list]) => ({ key: k, label: label(k), ...mixOf(list, junk) }))
       .sort((a, b) => b.leads - a.leads || b.met - a.met || a.label.localeCompare(b.label, "he"));
   };
   const projectName = new Map(projects.map((x) => [x.id, x.name]));

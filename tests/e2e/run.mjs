@@ -104,6 +104,17 @@ try {
   await a.goto(`${BASE}/audit`);
   ok("the audit log records it", (await a.locator("table.audit tbody tr").count()) > 3);
 
+  // ---- lists, and who meets the clients ----
+  await a.goto(`${BASE}/settings`);
+  await a.waitForSelector(".set-host select");
+  await a.selectOption(".set-host select", { label: "דרור דוגמה" });
+  ok("a manager sets who meets the clients", (await toast(a)).includes("דרור"));
+  const newSource = "יריד נדל״ן " + (Date.now() % 1000);
+  await a.fill('.set-add input[placeholder="מקור חדש"]', newSource);
+  await a.click('.panel:has-text("מקורות הגעה") .set-add button');
+  await a.click('.panel:has-text("מקורות הגעה") button:has-text("שמירה")');
+  ok("a manager adds a source", (await toast(a)).includes("נשמרו"));
+
   // ---- the rep's day on a phone ----
   const p = await (await browser.newContext(phone)).newPage();
   p.on("pageerror", (e) => errors.push(e.message));
@@ -126,7 +137,9 @@ try {
     await p.click(".drawer .chips >> nth=1 >> button >> nth=0");
     ok("the save button reads the booking back", (await p.locator(".drawer .sheet-foot .bigbtn").textContent()).startsWith("לקבוע:"));
     await p.click(".drawer .sheet-foot .bigbtn");
-    ok("meeting booked", (await toast(p)).includes("נקבעה"));
+    const booked = await toast(p);
+    ok("meeting booked", booked.includes("נקבעה"));
+    ok("the client moves to the person who meets clients", booked.includes("עבר לדרור"), booked);
     await p.waitForSelector(".drawer .wa-preview");
     const waHref = (await p.locator(".drawer a.bigbtn.wa").getAttribute("href")) || "";
     ok("after booking, the details and address are ready for WhatsApp", waHref.startsWith("https://wa.me/") && (await p.locator(".drawer .wa-preview").innerText()).includes("דרך רבין"));
@@ -226,6 +239,7 @@ try {
   await p.click(".drawer button[type=submit]");
   await p.waitForTimeout(500);
   ok("a new lead needs a project", ((await p.locator(".drawer .err").textContent().catch(() => "")) || "").includes("פרויקט"));
+  ok("the manager's new source is offered", (await p.locator(`.drawer select option:has-text("${newSource}")`).count()) === 1);
   await p.click(".drawer .pchips label >> nth=0");
   await p.click(".drawer button[type=submit]");
   await p.waitForURL(/\/leads\/[^/?]+$/, { timeout: 10000 });

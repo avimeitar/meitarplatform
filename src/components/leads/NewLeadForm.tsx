@@ -4,13 +4,12 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createLeadAction } from "@/app/actions/leads";
 import { useDrawer, useToast } from "@/components/ui/Overlays";
-import { MANUAL_SOURCES } from "@/lib/crm/constants";
 import { normalizePhone } from "@/lib/phone";
 
 export type ProjectOption = { id: string; name: string };
 export type PersonOption = { id: string; name: string };
 
-export function NewLeadForm({ projects, people, canAssign, me, prefill }: { projects: ProjectOption[]; people: PersonOption[]; canAssign: boolean; me: { id: string; name: string }; prefill?: string }) {
+export function NewLeadForm({ projects, people, sources, canAssign, me, prefill }: { projects: ProjectOption[]; people: PersonOption[]; sources: string[]; canAssign: boolean; me: { id: string; name: string }; prefill?: string }) {
   const router = useRouter();
   const drawer = useDrawer();
   const toast = useToast();
@@ -19,7 +18,7 @@ export function NewLeadForm({ projects, people, canAssign, me, prefill }: { proj
   const [phone, setPhone] = useState(digits.length >= 7 ? (prefill ?? "") : "");
   const [email, setEmail] = useState("");
   const [projectId, setProjectId] = useState("");
-  const [source, setSource] = useState(MANUAL_SOURCES[0]);
+  const [source, setSource] = useState(sources[0] ?? "אחר");
   const [owner, setOwner] = useState(me.id);
   const [consent, setConsent] = useState(false);
   const [err, setErr] = useState<{ field?: string; text: string } | null>(null);
@@ -80,7 +79,7 @@ export function NewLeadForm({ projects, people, canAssign, me, prefill }: { proj
       <label className="fld">
         <span>מקור הגעה</span>
         <select value={source} onChange={(e) => setSource(e.target.value)}>
-          {MANUAL_SOURCES.map((s) => (
+          {sources.map((s) => (
             <option key={s}>{s}</option>
           ))}
         </select>

@@ -13,6 +13,7 @@ export const PERMISSIONS = {
   "reports.view": { group: "דוחות", label: "לראות את דשבורד המנהל, הביצועים, הפרויקטים והעסקאות" },
   "hours.manage": { group: "שעות עבודה", label: "לראות ולתקן את שעות העבודה של כולם, ולייצא לשכר" },
   "projects.manage": { group: "הגדרות", label: "להוסיף ולערוך פרויקטים" },
+  "lists.manage": { group: "הגדרות", label: "לערוך רשימות: מקורות הגעה, סיבות ל״לא רלוונטי״, שמות סטטוסים, ומי נפגש עם הלקוחות" },
   "settings.manage": { group: "הגדרות", label: "חיבורים ומפתחות לקליטת לידים" },
   "users.manage": { group: "משתמשים", label: "להוסיף, לערוך, להשבית ולמחוק משתמשים" },
   "roles.manage": { group: "משתמשים", label: "לקבוע מה כל תפקיד יכול לעשות" },
@@ -51,6 +52,7 @@ export const BUILT_IN_ROLES: Record<BuiltInRoleKey, { name: string; description:
       "reports.view",
       "hours.manage",
       "projects.manage",
+      "lists.manage",
     ],
   },
   agent: {

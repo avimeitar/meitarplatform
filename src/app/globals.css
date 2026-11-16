@@ -1098,3 +1098,26 @@ a.cev,a.mev{text-decoration:none}
   .remind-acts{grid-template-columns:1fr 1fr}
 }
 @media (max-width:900px){.remind-dock{bottom:calc(76px + env(safe-area-inset-bottom,0px));inset-inline:12px;width:auto}}
+
+/* ---------- Lists and settings (/settings) ---------- */
+.settings{display:flex;flex-direction:column;gap:16px}
+.settings > .page-head{margin-bottom:0}
+.settings .panel > .muted{margin:4px 0 12px}
+.settings .set-host{display:block;max-width:340px}
+.set-host select{width:100%;height:40px;font-size:var(--fs-2)}
+.set-list{list-style:none;margin:0 0 12px;padding:0;border:1px solid var(--line-soft);border-radius:12px}
+.set-list li{display:flex;align-items:center;gap:6px;padding:6px 10px;border-top:1px solid var(--line-soft)}
+.set-list li:first-child{border-top:0}
+.set-list li > span{flex:1;min-width:0;font-weight:500}
+.set-list .ib.up svg{transform:rotate(180deg)}
+.set-junk{display:inline-flex;align-items:center;gap:6px;margin-inline-end:8px;font-size:var(--fs-1);color:var(--ink-2);white-space:nowrap}
+.set-add{display:flex;gap:8px;max-width:420px}
+.set-add input{flex:1;min-width:0;height:38px;padding:0 12px;border:1px solid var(--field-line);border-radius:9px;background:var(--surface)}
+.set-labels{margin-top:0}
+.set-names{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
+.set-names .fld input{width:100%;border:1px solid var(--field-line);border-radius:9px;background:var(--surface)}
+@media (max-width:760px){
+  .set-names{grid-template-columns:minmax(0,1fr)}
+  .set-list li{flex-wrap:wrap}
+  .set-add input{height:44px}
+}

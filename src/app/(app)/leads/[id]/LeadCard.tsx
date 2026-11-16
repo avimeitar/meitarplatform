@@ -5,13 +5,14 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { addNoteAction, addTaskAction, assignLeadAction, deleteLeadAction, logWhatsAppAction, setLeadStatusAction, updateLeadAction } from "@/app/actions/leads";
 import { Icon, type IconName } from "@/components/Icon";
+import { useLists } from "@/components/ShellData";
 import { MeetingStateSelect } from "@/components/crm/MeetingState";
 import { firstName, initials, StatusPill } from "@/components/crm/bits";
 import { readyMessages, useLeadSheets, waLink, type SheetLead } from "@/components/crm/Sheets";
 import { TaskList, type TaskItem } from "@/components/crm/TaskList";
 import { useToast } from "@/components/ui/Overlays";
 import { useRunner } from "@/components/ui/useRunner";
-import { MAIN, REASONS, ST, type LeadStatus } from "@/lib/crm/constants";
+import { MAIN, ST, type LeadStatus } from "@/lib/crm/constants";
 import { addDays, dayFull, dayLabel, fD, fT, iso, nextWorkday, relTime, sod } from "@/lib/crm/dates";
 
 export type Activity = { id: string; kind: string; direction: string | null; text: string; auto: string | null; tags: string[]; userName: string | null; createdAt: string };
@@ -50,6 +51,7 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
   const sheets = useLeadSheets();
   const runner = useRunner();
   const toast = useToast();
+  const { reasons } = useLists();
   const [lostOpen, setLostOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("note");
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -168,7 +170,7 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
         </div>
         {lostOpen && (
           <div className="reasons" role="group" aria-label="סיבה">
-            {REASONS.map((r) => (
+            {reasons.map((r) => (
               <button
                 key={r}
                 type="button"

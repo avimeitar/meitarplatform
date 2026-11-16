@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { taskDoneAction, taskStateAction } from "@/app/actions/leads";
+import { useLists } from "@/components/ShellData";
 import { useRunner } from "@/components/ui/useRunner";
 import { TASK_STATE_ORDER, TASK_STATES, type TaskState } from "@/lib/crm/constants";
 import { Due } from "./bits";
@@ -11,13 +12,14 @@ export type TaskItem = { id: string; title: string; dueAt: string; done: boolean
 /** פתוחה, בטיפול, הושלמה, בוטלה: a compact choice next to the task. */
 function TaskStateSelect({ id, state }: { id: string; state: TaskState }) {
   const runner = useRunner();
+  const names = useLists().task;
   return (
     <label className={"tsel " + TASK_STATES[state].c}>
       <span className="sr">סטטוס המשימה</span>
       <select value={state} onChange={(e) => e.target.value !== state && runner(taskStateAction(id, e.target.value))}>
         {TASK_STATE_ORDER.map((s) => (
           <option key={s} value={s}>
-            {TASK_STATES[s].l}
+            {names[s]}
           </option>
         ))}
       </select>
@@ -28,6 +30,7 @@ function TaskStateSelect({ id, state }: { id: string; state: TaskState }) {
 /** The row is the tap target for "done". A task done a moment ago stays where it was (struck through) so the list doesn't jump. */
 export function TaskList({ tasks, showUser = false, empty = "אין משימות." }: { tasks: TaskItem[]; showUser?: boolean; empty?: string }) {
   const runner = useRunner();
+  const names = useLists().task;
   if (!tasks.length) return <p className="empty">{empty}</p>;
   return (
     <ul className="tlist">
@@ -40,7 +43,7 @@ export function TaskList({ tasks, showUser = false, empty = "אין משימות
               <div className="t-main">
                 <span className={t.done ? "t-done" : ""}>{t.title}</span>
                 <small>
-                  {t.done ? <span className="due">{TASK_STATES[state].l}</span> : <Due at={t.dueAt} />}
+                  {t.done ? <span className="due">{names[state]}</span> : <Due at={t.dueAt} />}
                   {t.leadName ? ` · ${t.leadName}` : ""}
                   {showUser && t.userName ? ` · ${t.userName}` : ""}
                 </small>

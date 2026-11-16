@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import type { Recorder } from "@/lib/undo";
 import { meetingClient, MS, OPEN_STATUSES, ST, taskState, type LeadStatus, type MeetingStatus, type TaskState } from "./constants";
 import { HOUR, WD, addDays, at, fD, fT, nextWorkday, relTime, sameDay, sod } from "./dates";
+import { getLists } from "@/lib/lists";
 
 type By = { id: string; name: string };
 
@@ -312,7 +313,8 @@ export async function setMeetingStatus(tx: Tx, rec: Recorder, meetingId: string,
   const first = meetingClient(m).split(/\s+/)[0];
   if (!m.leadId || !m.lead) return (m.clientName ? `הפגישה עם ${first}` : "הפגישה") + ` סומנה ״${MS[st].l}״`;
   const lead = m.lead;
-  const word = st === "held" ? "התקיימה" : st === "cancel" ? "בוטלה" : st === "set" ? "נקבעה מחדש" : `סומנה ״${MS[st].l}״`;
+  const names = (await getLists()).meeting;
+  const word = st === "held" ? "התקיימה" : st === "cancel" ? "בוטלה" : st === "set" ? "נקבעה מחדש" : `סומנה ״${names[st]}״`;
   await addActivity(tx, rec, lead.id, { kind: "meeting", text: `הפגישה של ${meetingWhen(m.startAt)} ${word}`, userId: by.id });
   // the reminder from the earlier outcome no longer applies (a reversed "held" or "cancel" leaves nothing behind)
   await voidAutoTasks(tx, rec, lead.id, ["follow", "resched"]);
@@ -332,7 +334,7 @@ export async function setMeetingStatus(tx: Tx, rec: Recorder, meetingId: string,
     return `הפגישה עם ${first} חזרה ל״${MS.set.l}״`;
   }
   // cancelled, no-show, or to be rescheduled: the meeting did not take place, so the lead needs a new date
-  const what = st === "cancel" ? `הפגישה עם ${first} בוטלה` : `הפגישה עם ${first} סומנה ״${MS[st].l}״`;
+  const what = st === "cancel" ? `הפגישה עם ${first} בוטלה` : `הפגישה עם ${first} סומנה ״${names[st]}״`;
   if (lead.status === "lost") return what;
   const other = await tx.meeting.count({ where: { leadId: lead.id, id: { not: m.id }, status: "set", startAt: { gte: new Date() } } });
   if (!other) {

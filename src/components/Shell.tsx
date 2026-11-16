@@ -9,6 +9,7 @@ import { useDrawer, Overlays } from "@/components/ui/Overlays";
 import { NewLeadForm, type PersonOption, type ProjectOption } from "@/components/leads/NewLeadForm";
 import { ShiftButton, type ShiftInfo } from "@/components/hours/ShiftButton";
 import { ShellDataProvider } from "@/components/ShellData";
+import type { ClientLists } from "@/lib/lists";
 import { TaskReminders } from "@/components/crm/TaskReminders";
 import type { Permission } from "@/lib/permissions";
 
@@ -47,6 +48,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/users", label: "משתמשים", icon: "users", need: ["users.manage"] },
       { href: "/roles", label: "הרשאות", icon: "shield", need: ["roles.manage"] },
       { href: "/intake", label: "קליטת לידים", icon: "link", need: ["settings.manage"] },
+      { href: "/settings", label: "רשימות והגדרות", icon: "filter", need: ["lists.manage"] },
       { href: "/import", label: "ייבוא מפיירברי", icon: "upload", need: ["leads.import"] },
       { href: "/audit", label: "יומן פעולות", icon: "list", need: ["audit.view"] },
     ],
@@ -58,7 +60,7 @@ function initials(name: string) {
   return (p[0]?.[0] ?? "") + (p[1]?.[0] ?? "");
 }
 
-function ShellInner({ user, counts, projects, people, shift, children }: { user: ShellUser; counts: NavCounts; projects: ProjectOption[]; people: PersonOption[]; shift: ShiftInfo; children: ReactNode }) {
+function ShellInner({ user, counts, projects, people, shift, lists, children }: { user: ShellUser; counts: NavCounts; projects: ProjectOption[]; people: PersonOption[]; shift: ShiftInfo; lists: ClientLists; children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const drawer = useDrawer();
@@ -88,7 +90,7 @@ function ShellInner({ user, counts, projects, people, shift, children }: { user:
   const active = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   function openNewLead(prefill?: string) {
-    drawer.open({ title: "ליד חדש", content: <NewLeadForm projects={projects} people={people} canAssign={has("leads.assign")} me={user} prefill={prefill} /> });
+    drawer.open({ title: "ליד חדש", content: <NewLeadForm projects={projects} people={people} sources={lists.sources} canAssign={has("leads.assign")} me={user} prefill={prefill} /> });
   }
 
   async function signOut() {
@@ -207,10 +209,10 @@ function ShellInner({ user, counts, projects, people, shift, children }: { user:
   );
 }
 
-export function Shell(props: { user: ShellUser; counts: NavCounts; projects: ProjectOption[]; people: PersonOption[]; shift: ShiftInfo; meetingHost: string | null; children: ReactNode }) {
+export function Shell(props: { user: ShellUser; counts: NavCounts; projects: ProjectOption[]; people: PersonOption[]; shift: ShiftInfo; meetingHost: string | null; lists: ClientLists; children: ReactNode }) {
   // above the overlays, so sheets opened in the drawer can read it too
   return (
-    <ShellDataProvider value={{ meId: props.user.id, people: props.people, meetingHost: props.meetingHost }}>
+    <ShellDataProvider value={{ meId: props.user.id, people: props.people, meetingHost: props.meetingHost, lists: props.lists }}>
       <Overlays>
         <ShellInner {...props} />
       </Overlays>
