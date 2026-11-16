@@ -20,13 +20,19 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const limit = Math.min(500, Math.max(50, Number(sp.limit) || 50));
 
   const orderBy: Prisma.LeadOrderByWithRelationInput[] = ["today", "noans", "resched", "follow"].includes(view.key) && !q ? [{ nextAt: "asc" }, { createdAt: "desc" }] : [{ createdAt: "desc" }];
-  const [rows, total, counts, projects, people] = await Promise.all([
+  const [rows, total, counts, projects, users, stored, lists] = await Promise.all([
     prisma.lead.findMany({ where, orderBy, take: limit, include: { project: { select: { name: true } }, owner: { select: { name: true } } } }),
     prisma.lead.count({ where }),
     Promise.all(viewKeys.map((k) => prisma.lead.count({ where: { AND: [scope, VIEWS[k].where(u), ...filters] } }))),
-    prisma.project.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
-    prisma.user.findMany({ where: { active: true, deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    // the filters offer what the clients actually have: a project that closed since, and someone who left, too
+    prisma.project.findMany({ where: { OR: [{ active: true }, { leads: { some: scope } }] }, orderBy: [{ active: "desc" }, { sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, active: true } }),
+    prisma.user.findMany({ where: { OR: [{ active: true, deletedAt: null }, { ownedLeads: { some: scope } }] }, orderBy: { name: "asc" }, select: { id: true, name: true, active: true, deletedAt: true } }),
+    prisma.lead.groupBy({ by: ["source"], where: scope }),
+    getLists(),
   ]);
+  // who can receive clients: only people who are still here
+  const people = users.filter((p) => p.active && !p.deletedAt).map((p) => ({ id: p.id, name: p.name }));
+  const owners = users.map((p) => ({ id: p.id, name: p.name + (p.active && !p.deletedAt ? "" : " (לא פעיל)") }));
 
   const data: LeadRow[] = rows.map((l) => ({
     id: l.id,
@@ -51,7 +57,9 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const fcount = [sp.project, sp.source, sp.status, manager ? sp.owner : undefined].filter(Boolean).length;
   const range = createdRange(sp);
   const rangeText = range.from && range.to ? (range.from.getTime() === range.to.getTime() ? `ב-${fD(range.from)}` : `בין ${fD(range.from)} ל-${fD(range.to)}`) : range.from ? `מ-${fD(range.from)}` : range.to ? `עד ${fD(range.to)}` : "";
-  const sources = [...new Set([...(await getLists()).sources, "טאבולה", "כתבה ממומנת", ...(sp.source ? [sp.source] : [])])];
+  // the sources on the list first, then any other source clients came from (Fireberry, the intake API)
+  const others = stored.map((x) => x.source).filter((x) => !lists.sources.includes(x));
+  const sources = [...new Set([...lists.sources, ...others.sort((x, y) => x.localeCompare(y, "he")), ...(sp.source ? [sp.source] : [])])];
   const showFilters = manager || sp.filters === "1";
 
   return (
@@ -98,7 +106,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 <option value="">כל הפרויקטים</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name}
+                    {p.name + (p.active ? "" : " (לא פעיל)")}
                   </option>
                 ))}
               </select>
@@ -129,7 +137,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 <select name="owner" defaultValue={sp.owner ?? ""}>
                   <option value="">כל הצוות</option>
                   <option value="none">לא שויכו</option>
-                  {people.map((p) => (
+                  {owners.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
                     </option>

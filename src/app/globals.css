@@ -128,7 +128,7 @@ svg.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-widt
 .grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
 .grid-2.wide{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
 .stack{display:flex;flex-direction:column;gap:16px}
-.seg{display:inline-flex;padding:3px;border-radius:10px;background:#E7ECF4}
+.seg{display:inline-flex;flex-wrap:wrap;max-width:100%;padding:3px;border-radius:10px;background:#E7ECF4}
 .seg button{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border:0;border-radius:8px;background:transparent;color:var(--ink-2);font-weight:500;font-size:var(--fs-1)}
 .seg button.on{background:var(--surface);color:var(--navy);box-shadow:0 1px 2px rgba(15,30,61,.08)}
 .link{font-weight:500;text-decoration:none;border:0;background:transparent;padding:0;color:var(--blue-ink)}
@@ -841,6 +841,8 @@ h2.h-sm{font-size:var(--fs-2);line-height:inherit}
 .cal-title{margin:0 6px;font-size:var(--fs-3);white-space:nowrap}
 .cal-filters{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .cal-cancel{font-size:var(--fs-1);color:var(--ink-2)}
+/* while a new filter loads, the meetings shown so far fade a little */
+section:has(.cal-filters[data-pending]) :is(.cal, .cal-wrap, .mtable, .mviews){opacity:.55;transition:opacity .15s}
 .cal-stale{margin-bottom:10px}
 .cal-hint{margin:8px 2px 0;font-size:var(--fs-1);color:var(--ink-3)}
 .cal-empty{margin:10px 2px 0;color:var(--ink-3)}

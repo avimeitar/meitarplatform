@@ -7,7 +7,18 @@ import { requirePageUser } from "@/lib/session";
 export const metadata = { title: "יומן פעולות" };
 const PAGE = 100;
 
-const GROUPS: Record<string, string> = { auth: "כניסות", user: "משתמשים", role: "הרשאות", lead: "לקוחות", apikey: "קליטת לידים", project: "פרויקטים" };
+// one tab for each kind of action, so every entry can be found by its kind
+const GROUPS: Record<string, string> = {
+  auth: "כניסות",
+  user: "משתמשים",
+  role: "הרשאות",
+  lead: "לקוחות",
+  meeting: "פגישות",
+  hours: "שעות עבודה",
+  apikey: "קליטת לידים",
+  project: "פרויקטים",
+  settings: "הגדרות",
+};
 
 function describe(meta: unknown): string {
   if (!meta || typeof meta !== "object") return "";

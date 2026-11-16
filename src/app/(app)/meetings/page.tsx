@@ -42,6 +42,24 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
   const scope: Prisma.MeetingWhereInput = can(u, "leads.view_all") ? {} : mineWhere;
   // the calendar is the main view; the list stays for searching and for marking past meetings
   const view = sp.view === "list" || (sp.view !== "cal" && (sp.range || sp.q)) ? "list" : "cal";
+  // person and project apply to both views, and stay when switching between them
+  const teamView = can(u, "leads.view_all");
+  const filters: Filters = { person: teamView && sp.person ? sp.person : "", project: sp.project ?? "" };
+  const [people, projects] = await Promise.all([
+    // a project that closed since, and someone who left, can still be looked up
+    teamView
+      ? prisma.user.findMany({
+          where: { OR: [{ active: true, deletedAt: null }, { meetingsSet: { some: {} } }, { meetingsHosted: { some: {} } }] },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, active: true, deletedAt: true },
+        })
+      : Promise.resolve([]),
+    prisma.project.findMany({ where: { OR: [{ active: true }, { meetings: { some: {} } }] }, orderBy: [{ active: "desc" }, { sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, active: true } }),
+  ]);
+  const options: Options = {
+    people: people.map((p) => ({ id: p.id, name: p.name + (p.active && !p.deletedAt ? "" : " (לא פעיל)") })),
+    projects: projects.map((p) => ({ id: p.id, name: p.name + (p.active ? "" : " (לא פעיל)") })),
+  };
 
   let kpis: { upcoming: number; held: number; cancel: number } | null = null;
   if (manager) {
@@ -54,7 +72,7 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
     kpis = { upcoming: up, held, cancel };
   }
 
-  const viewHref = (v: "cal" | "list") => `/meetings?${new URLSearchParams({ view: v, who })}`;
+  const viewHref = (v: "cal" | "list") => `/meetings?${new URLSearchParams({ view: v, who, ...(filters.person ? { person: filters.person } : {}), ...(filters.project ? { project: filters.project } : {}) })}`;
   return (
     <section>
       <div className="page-head">
@@ -96,12 +114,23 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
           </div>
         </div>
       )}
-      {view === "cal" ? <CalendarView u={u} sp={sp} who={who} scope={scope} mineWhere={mineWhere} now={now} /> : <ListView u={u} sp={sp} who={who} scope={scope} mineWhere={mineWhere} now={now} manager={manager} />}
+      {view === "cal" ? (
+        <CalendarView u={u} sp={sp} who={who} scope={scope} mineWhere={mineWhere} now={now} filters={filters} options={options} />
+      ) : (
+        <ListView u={u} sp={sp} who={who} scope={scope} mineWhere={mineWhere} now={now} filters={filters} options={options} manager={manager} />
+      )}
     </section>
   );
 }
 
-type ViewArgs = { u: CurrentUser; sp: Params; who: "all" | "mine"; scope: Prisma.MeetingWhereInput; mineWhere: Prisma.MeetingWhereInput; now: Date };
+type Filters = { person: string; project: string };
+type Options = { people: { id: string; name: string }[]; projects: { id: string; name: string }[] };
+type ViewArgs = { u: CurrentUser; sp: Params; who: "all" | "mine"; scope: Prisma.MeetingWhereInput; mineWhere: Prisma.MeetingWhereInput; now: Date; filters: Filters; options: Options };
+
+/** One person's meetings: the ones they booked and the ones they hold. */
+const filterWhere = (f: Filters): Prisma.MeetingWhereInput[] => [f.person ? { OR: [{ setById: f.person }, { hostId: f.person }] } : {}, f.project ? { projectId: f.project } : {}];
+/** Cancelled meetings, and ones waiting for a new date, are left out of the calendar unless asked for. */
+const NOT_ON_CALENDAR = ["cancel", "resched"];
 
 function canEditMeeting(u: CurrentUser, m: { setById: string | null; hostId: string | null; lead: { ownerId: string | null } | null }) {
   return can(u, "leads.edit") && (m.setById === u.id || m.hostId === u.id || m.lead?.ownerId === u.id || can(u, "meetings.manage_all"));
@@ -109,7 +138,7 @@ function canEditMeeting(u: CurrentUser, m: { setById: string | null; hostId: str
 
 // ---------------------------------------------------------------- the calendar
 
-async function CalendarView({ u, sp, who, scope, mineWhere, now }: ViewArgs) {
+async function CalendarView({ u, sp, who, scope, mineWhere, now, filters, options }: ViewArgs) {
   const mode: Mode = sp.mode === "day" || sp.mode === "month" ? sp.mode : "week";
   const today = sod(now);
   // on Saturday the calendar opens on the coming week
@@ -129,24 +158,14 @@ async function CalendarView({ u, sp, who, scope, mineWhere, now }: ViewArgs) {
     start = weekStart(first);
     end = addDays(weekStart(last), 7);
   }
-  const teamView = can(u, "leads.view_all");
-  const person = teamView && sp.person ? sp.person : "";
+  const person = filters.person;
   const showCancelled = sp.cancelled === "1";
   const where: Prisma.MeetingWhereInput = {
-    AND: [
-      scope,
-      who === "mine" ? mineWhere : {},
-      person ? { OR: [{ setById: person }, { hostId: person }] } : {},
-      sp.project ? { projectId: sp.project } : {},
-      showCancelled ? {} : { status: { not: "cancel" } },
-      { startAt: { gte: start, lt: end } },
-    ],
+    AND: [scope, who === "mine" ? mineWhere : {}, ...filterWhere(filters), showCancelled ? {} : { status: { notIn: NOT_ON_CALENDAR } }, { startAt: { gte: start, lt: end } }],
   };
-  const [rows, staleCount, people, projects] = await Promise.all([
+  const [rows, staleCount] = await Promise.all([
     prisma.meeting.findMany({ where, orderBy: { startAt: "asc" }, take: 3000, include }),
     prisma.meeting.count({ where: { AND: [scope, who === "mine" ? mineWhere : {}, { status: "set", startAt: { lt: now } }] } }),
-    teamView ? prisma.user.findMany({ where: { active: true, deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }) : Promise.resolve([]),
-    prisma.project.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
   ]);
   const meetings: CalMeeting[] = rows.map((m) => ({
     id: m.id,
@@ -185,7 +204,7 @@ async function CalendarView({ u, sp, who, scope, mineWhere, now }: ViewArgs) {
   const byPerson = mode === "day" && who === "all" && !person && new Set(meetings.map((m) => m.person)).size > 1;
 
   // links that keep the filters
-  const keep = { view: "cal", who, ...(person ? { person } : {}), ...(sp.project ? { project: sp.project } : {}), ...(showCancelled ? { cancelled: "1" } : {}) };
+  const keep = { view: "cal", who, ...(person ? { person } : {}), ...(filters.project ? { project: filters.project } : {}), ...(showCancelled ? { cancelled: "1" } : {}) };
   const href = (extra: Record<string, string>) => `/meetings?${new URLSearchParams({ ...keep, mode, date: iso(anchor), ...extra })}`;
   const dayHref = Object.fromEntries(days.map((k) => [k, href({ mode: "day", date: k })]));
   const step = (n: number) => {
@@ -235,7 +254,7 @@ async function CalendarView({ u, sp, who, scope, mineWhere, now }: ViewArgs) {
             </Link>
           ))}
         </div>
-        {teamView && (
+        {can(u, "leads.view_all") && (
           <div className="seg" role="group" aria-label="של מי">
             <Link className={who === "mine" ? "on" : ""} href={`/meetings?${new URLSearchParams({ ...keep, who: "mine", mode, date: iso(anchor) })}`}>
               שלי
@@ -245,7 +264,7 @@ async function CalendarView({ u, sp, who, scope, mineWhere, now }: ViewArgs) {
             </Link>
           </div>
         )}
-        <CalendarFilters people={people} projects={projects} person={person} project={sp.project ?? ""} cancelled={showCancelled} />
+        <CalendarFilters view="cal" people={options.people} projects={options.projects} person={person} project={filters.project} cancelled={showCancelled} />
       </div>
       {staleCount > 0 && (
         <Link className="achip amber cal-stale" href={`/meetings?${new URLSearchParams({ view: "list", range: "stale", who })}`}>
@@ -275,7 +294,7 @@ async function CalendarView({ u, sp, who, scope, mineWhere, now }: ViewArgs) {
 
 // ---------------------------------------------------------------- the list
 
-async function ListView({ u, sp, who, scope, mineWhere, now, manager }: ViewArgs & { manager: boolean }) {
+async function ListView({ u, sp, who, scope, mineWhere, now, filters, options, manager }: ViewArgs & { manager: boolean }) {
   const today = sod(now);
   const next = nextWorkday(now);
   const RANGES: [string, string, Prisma.MeetingWhereInput][] = [
@@ -292,7 +311,7 @@ async function ListView({ u, sp, who, scope, mineWhere, now, manager }: ViewArgs
   // the status tabs, like the leads list: "אושרה הגעה" is a set meeting with the arrival confirmed
   const st: MeetingState | null = sp.st && isMeetingState(sp.st) ? sp.st : null;
   const stateWhere = (s: MeetingState): Prisma.MeetingWhereInput => (s === "set" ? { status: "set", confirmed: false } : s === "confirmed" ? { status: "set", confirmed: true } : { status: s });
-  const base: Prisma.MeetingWhereInput = { AND: [scope, range[2], who === "mine" ? mineWhere : {}] };
+  const base: Prisma.MeetingWhereInput = { AND: [scope, range[2], who === "mine" ? mineWhere : {}, ...filterWhere(filters)] };
   // a search looks through every meeting this person may see, at any date
   const where: Prisma.MeetingWhereInput = q
     ? { AND: [scope, { OR: [{ clientName: { contains: q, mode: "insensitive" } }, { lead: { name: { contains: q, mode: "insensitive" } } }, { subject: { contains: q, mode: "insensitive" } }] }] }
@@ -325,7 +344,7 @@ async function ListView({ u, sp, who, scope, mineWhere, now, manager }: ViewArgs
     canEdit: canEditMeeting(u, m),
   }));
   const href = (extra: Record<string, string>) => {
-    const p = new URLSearchParams(Object.entries({ view: "list", range: range[0], who, st: st ?? "", ...extra }).filter(([, v]) => v));
+    const p = new URLSearchParams(Object.entries({ view: "list", range: range[0], who, st: st ?? "", person: filters.person, project: filters.project, ...extra }).filter(([, v]) => v));
     return `/meetings?${p}`;
   };
   return (
@@ -362,6 +381,7 @@ async function ListView({ u, sp, who, scope, mineWhere, now, manager }: ViewArgs
             </Link>
           </div>
         )}
+        {!q && <CalendarFilters view="list" people={options.people} projects={options.projects} person={filters.person} project={filters.project} cancelled={false} />}
         {q ? (
           <Link className="filter on" href={href({})}>
             חיפוש: {q} <Icon name="x" />
