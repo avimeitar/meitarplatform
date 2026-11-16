@@ -3,14 +3,14 @@ import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { formatPhone } from "@/lib/phone";
 import { can, type CurrentUser } from "@/lib/session";
-import { meetingClient } from "./constants";
+import { meetingClient, taskState, type TaskState } from "./constants";
 import { addDays, monthStart, nextWorkday, nightStart, sod, weekStart } from "./dates";
 import { buildQueue } from "./service";
 
 const RECENT_DONE_MS = 15 * 60_000;
 
 export type AgendaItem = { id: string; leadId: string | null; leadName: string; projectName: string; startAt: string; place: string; status: string; confirmed: boolean; hostName: string | null };
-export type TaskRow = { id: string; title: string; dueAt: string; done: boolean; leadId: string | null; leadName: string | null; userName: string | null };
+export type TaskRow = { id: string; title: string; dueAt: string; done: boolean; state: TaskState; leadId: string | null; leadName: string | null; userName: string | null };
 export type QueueRow = { leadId: string; name: string; phone: string; phoneRaw: string; status: string; projectName: string; source: string; why: string; late: boolean; meetingId?: string; lastWa: string | null; attempts: number };
 
 export function leadScope(u: CurrentUser): Prisma.LeadWhereInput {
@@ -22,8 +22,8 @@ export function openTaskWhere(extra: Prisma.TaskWhereInput = {}): Prisma.TaskWhe
   return { AND: [extra, { OR: [{ done: false }, { done: true, voided: false, doneAt: { gte: new Date(Date.now() - RECENT_DONE_MS) } }] }] };
 }
 
-export function taskRow(t: { id: string; title: string; dueAt: Date; done: boolean; leadId: string | null; lead?: { name: string } | null; user?: { name: string } | null }): TaskRow {
-  return { id: t.id, title: t.title, dueAt: t.dueAt.toISOString(), done: t.done, leadId: t.leadId, leadName: t.lead?.name ?? null, userName: t.user?.name ?? null };
+export function taskRow(t: { id: string; title: string; dueAt: Date; done: boolean; voided: boolean; status: string; leadId: string | null; lead?: { name: string } | null; user?: { name: string } | null }): TaskRow {
+  return { id: t.id, title: t.title, dueAt: t.dueAt.toISOString(), done: t.done, state: taskState(t), leadId: t.leadId, leadName: t.lead?.name ?? null, userName: t.user?.name ?? null };
 }
 
 /** Meetings from today until the end of the next working day (on Thursday that includes Friday). */

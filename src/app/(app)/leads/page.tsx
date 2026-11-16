@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { formatPhone } from "@/lib/phone";
 import { can, requirePageUser } from "@/lib/session";
 import { LeadsTable, type LeadRow } from "./LeadsTable";
+import { AutoSubmitForm } from "@/components/ui/AutoSubmitForm";
 
 export const metadata = { title: "לידים" };
 
@@ -85,7 +86,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           </Link>
         )}
         {showFilters && !q && (
-          <form className="filters" action="/leads">
+          <AutoSubmitForm className="filters" action="/leads">
             <input type="hidden" name="view" value={view.key} />
             {!manager && <input type="hidden" name="filters" value="1" />}
             {range.from && <input type="hidden" name="from" value={sp.from} />}
@@ -138,7 +139,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             <button type="submit" className="btn sm">
               הצגה
             </button>
-          </form>
+          </AutoSubmitForm>
         )}
         {rangeText && !q && (
           <Link className="filter on" href={keep({ from: undefined, to: undefined })} aria-label={`נכנסו ${rangeText}. הסרת הסינון לפי תאריך`}>

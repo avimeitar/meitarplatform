@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/Overlays";
 import { useRunner } from "@/components/ui/useRunner";
 import { authErrorText, authPost } from "@/lib/auth-fetch";
 import { passwordProblem } from "@/lib/password";
+import { PushToggle } from "@/components/crm/PushToggle";
 
 export function AccountScreen({ name, roleName, phone, channel, channels, sessions }: { name: string; roleName: string; phone: string; channel: "sms" | "whatsapp"; channels: ("sms" | "whatsapp")[]; sessions: number }) {
   const toast = useToast();
@@ -99,6 +100,11 @@ export function AccountScreen({ name, roleName, phone, channel, channels, sessio
               לנתק את כל שאר המכשירים
             </button>
           )}
+        </div>
+        <div className="panel">
+          <h2>תזכורות בטלפון</h2>
+          <p className="muted" style={{ marginBottom: 12 }}>כשמגיע הזמן של משימה, תופיע התראה בטלפון, גם כשהמערכת סגורה.</p>
+          <PushToggle />
         </div>
       </div>
     </section>

@@ -9,6 +9,7 @@ import { useDrawer, Overlays } from "@/components/ui/Overlays";
 import { NewLeadForm, type PersonOption, type ProjectOption } from "@/components/leads/NewLeadForm";
 import { ShiftButton, type ShiftInfo } from "@/components/hours/ShiftButton";
 import { ShellDataProvider } from "@/components/ShellData";
+import { TaskReminders } from "@/components/crm/TaskReminders";
 import type { Permission } from "@/lib/permissions";
 
 // Opens the "new lead" form from anywhere (for example from an empty search, with the number filled in).
@@ -182,6 +183,7 @@ function ShellInner({ user, counts, projects, people, shift, children }: { user:
       <main className="main" id="main">
         {children}
       </main>
+      <TaskReminders />
 
       <nav className="tabbar" aria-label="ניווט מהיר">
         {[

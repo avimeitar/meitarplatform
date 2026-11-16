@@ -10,11 +10,22 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  serverExternalPackages: ["pg", "@prisma/adapter-pg"],
+  serverExternalPackages: ["pg", "@prisma/adapter-pg", "web-push"],
   // the Fireberry import sends the whole file to the server
   experimental: { serverActions: { bodySizeLimit: "15mb" } },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // the service worker for phone reminders: always the newest version
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self'" },
+        ],
+      },
+    ];
   },
 };
 

@@ -15,7 +15,7 @@ d("CRM rules on a real database", () => {
     ({ prisma } = await import("@/lib/db"));
     crm = await import("@/lib/crm/service");
     undo = await import("@/lib/undo");
-    await prisma.$executeRawUnsafe('TRUNCATE "Lead", "Activity", "Meeting", "Task", "Inquiry", "ActionLog", "session", "account", "user", "Role" CASCADE');
+    await prisma.$executeRawUnsafe('TRUNCATE "Lead", "Activity", "Meeting", "Task", "Inquiry", "ActionLog", "PushSubscription", "session", "account", "user", "Role" CASCADE');
     const role = await prisma.role.create({ data: { key: "agent", name: "סוכן", permissions: ["leads.view_all", "leads.create", "leads.edit"] } });
     const u = await prisma.user.create({ data: { id: "u-test", name: "סוכנת בדיקה", email: "t@users.meitar.invalid", roleId: role.id, autoAssign: true } });
     by = { id: u.id, name: u.name };
@@ -236,6 +236,52 @@ d("CRM rules on a real database", () => {
     expect(m.hostId).toBe(closer.id);
     expect((await prisma.lead.findUniqueOrThrow({ where: { id: leadId } })).ownerId).toBe(closer.id);
     expect(await prisma.leadAssignment.count({ where: { leadId, userId: closer.id } })).toBe(1);
+  });
+
+  it("a task can be in progress or cancelled; cancelled closes it without counting as done", async () => {
+    const { leadId } = await newLead("+972500000501");
+    const { result: t } = await undo.withUndo(by.id, "task", (tx, rec) => crm.addTask(tx, rec, { leadId, userId: by.id, title: "לשלוח הצעת מחיר", dueAt: new Date(Date.now() + 3600_000), createdById: by.id }));
+    const { taskState } = await import("@/lib/crm/constants");
+    await undo.withUndo(by.id, "progress", (tx, rec) => crm.setTaskState(tx, rec, t.id, "progress", by));
+    let row = await prisma.task.findUniqueOrThrow({ where: { id: t.id } });
+    expect(taskState(row)).toBe("progress");
+    expect(row.done).toBe(false);
+    await undo.withUndo(by.id, "cancel", (tx, rec) => crm.setTaskState(tx, rec, t.id, "cancel", by));
+    row = await prisma.task.findUniqueOrThrow({ where: { id: t.id } });
+    expect(taskState(row)).toBe("cancel");
+    expect(row.done && row.voided).toBe(true);
+    await undo.withUndo(by.id, "open", (tx, rec) => crm.setTaskState(tx, rec, t.id, "open", by));
+    row = await prisma.task.findUniqueOrThrow({ where: { id: t.id } });
+    expect(taskState(row)).toBe("open");
+    await undo.withUndo(by.id, "done", (tx, rec) => crm.setTaskState(tx, rec, t.id, "done", by));
+    expect(taskState(await prisma.task.findUniqueOrThrow({ where: { id: t.id } }))).toBe("done");
+  });
+
+  it("a phone reminder goes out once per due task, only to people who turned reminders on", async () => {
+    const push = await import("@/lib/push");
+    const now = new Date();
+    const mk = (title: string, userId: string, minutesAgo: number, auto: string | null = null) =>
+      prisma.task.create({ data: { userId, title, dueAt: new Date(now.getTime() - minutesAgo * 60_000), auto } });
+    const due = await mk("לחזור ללקוח", by.id, 5);
+    const retry = await mk("לנסות שוב", by.id, 5, "retry");
+    const old = await mk("ישנה", by.id, 300);
+    const role = await prisma.role.findFirstOrThrow({ where: { key: "agent" } });
+    const other = await prisma.user.create({ data: { id: "u-nopush", name: "בלי התראות", email: "nopush@users.meitar.invalid", roleId: role.id } });
+    const theirs = await mk("של מישהו אחר", other.id, 5);
+    // nobody has reminders on yet: nothing is claimed
+    expect((await push.claimDueTasks(now)).length).toBe(0);
+    await prisma.pushSubscription.create({ data: { userId: by.id, endpoint: "https://fcm.googleapis.com/fcm/send/test-" + Date.now(), p256dh: "x".repeat(20), auth: "y".repeat(8) } });
+    const first = (await push.claimDueTasks(now)).map((t) => t.id);
+    expect(first).toContain(due.id);
+    expect(first).not.toContain(retry.id);
+    expect(first).not.toContain(old.id);
+    expect(first).not.toContain(theirs.id);
+    // the second minute: already reminded
+    expect((await push.claimDueTasks(now)).map((t) => t.id)).not.toContain(due.id);
+    expect(push.isPushEndpoint("https://fcm.googleapis.com/fcm/send/abc")).toBe(true);
+    expect(push.isPushEndpoint("https://web.push.apple.com/abc")).toBe(true);
+    expect(push.isPushEndpoint("https://evil.example.com/abc")).toBe(false);
+    expect(push.isPushEndpoint("http://fcm.googleapis.com/x")).toBe(false);
   });
 
   it("only the person who made a change can undo it", async () => {

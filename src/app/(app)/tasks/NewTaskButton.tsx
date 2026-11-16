@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { addTaskAction } from "@/app/actions/leads";
 import { Icon } from "@/components/Icon";
+import { LeadPicker, type PickedLead } from "@/components/crm/LeadPicker";
 import { useDrawer } from "@/components/ui/Overlays";
 import { useRunner } from "@/components/ui/useRunner";
 import { addDays, dayLabel, fD, iso, nextWorkday, sod } from "@/lib/crm/dates";
@@ -14,6 +15,7 @@ function TaskForm({ people, meId, canAssign }: { people: { id: string; name: str
   const [day, setDay] = useState(iso(nextWorkday()));
   const [time, setTime] = useState("10:00");
   const [userId, setUserId] = useState(meId);
+  const [lead, setLead] = useState<PickedLead | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const days = Array.from({ length: 10 }, (_, i) => addDays(sod(new Date()), i)).filter((d) => d.getDay() !== 6);
@@ -22,7 +24,7 @@ function TaskForm({ people, meId, canAssign }: { people: { id: string; name: str
     if (busy) return;
     if (title.trim().length < 2) return setError("צריך לכתוב מה לעשות");
     setBusy(true);
-    const r = await runner(addTaskAction({ title, day, time, userId }));
+    const r = await runner(addTaskAction({ title, day, time, userId, leadId: lead?.id }));
     setBusy(false);
     if (r.ok) drawer.close();
     else setError(r.error);
@@ -33,9 +35,10 @@ function TaskForm({ people, meId, canAssign }: { people: { id: string; name: str
         <span className="req">מה צריך לעשות?</span>
         <textarea rows={2} value={title} onChange={(e) => setTitle(e.target.value)} />
       </label>
+      <LeadPicker value={lead} onChange={setLead} label="לאיזה לקוח (לא חובה)" />
       <div className="frow">
         <label className="fld">
-          <span>מתי</span>
+          <span>עד מתי</span>
           <select value={day} onChange={(e) => setDay(e.target.value)}>
             {days.map((d) => (
               <option key={iso(d)} value={iso(d)}>

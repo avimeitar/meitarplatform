@@ -52,6 +52,21 @@ export function meetingClient(m: { lead?: { name: string } | null; clientName?: 
   return m.lead?.name ?? m.clientName ?? "ללא שם";
 }
 
+/** A task's status as people see it. Done and cancelled are kept as done/voided, so every list that counts open tasks stays right. */
+export const TASK_STATES = {
+  open: { l: "פתוחה", c: "ts-open" },
+  progress: { l: "בטיפול", c: "ts-progress" },
+  done: { l: "הושלמה", c: "ts-done" },
+  cancel: { l: "בוטלה", c: "ts-cancel" },
+} as const;
+export type TaskState = keyof typeof TASK_STATES;
+export const TASK_STATE_ORDER: TaskState[] = ["open", "progress", "done", "cancel"];
+export const isTaskState = (s: string): s is TaskState => Object.prototype.hasOwnProperty.call(TASK_STATES, s);
+export function taskState(t: { done: boolean; voided: boolean; status: string }): TaskState {
+  if (t.done) return t.voided ? "cancel" : "done";
+  return t.status === "progress" ? "progress" : "open";
+}
+
 export const REASONS = ["הכחשת פנייה", "אין עניין", "אין תקציב", "מספר לא תקין", "רכישה במקום אחר", "אחר"];
 
 export const PLACES = [

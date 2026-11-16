@@ -2,7 +2,7 @@
 import type { Tx } from "@/lib/db";
 import { prisma } from "@/lib/db";
 import type { Recorder } from "@/lib/undo";
-import { meetingClient, MS, OPEN_STATUSES, ST, type LeadStatus, type MeetingStatus } from "./constants";
+import { meetingClient, MS, OPEN_STATUSES, ST, taskState, type LeadStatus, type MeetingStatus, type TaskState } from "./constants";
 import { HOUR, WD, addDays, at, fD, fT, nextWorkday, relTime, sameDay, sod } from "./dates";
 
 type By = { id: string; name: string };
@@ -349,11 +349,25 @@ export async function setMeetingStatus(tx: Tx, rec: Recorder, meetingId: string,
 
 export async function setTaskDone(tx: Tx, rec: Recorder, taskId: string, done: boolean, by: By) {
   const t = await tx.task.findUniqueOrThrow({ where: { id: taskId } });
-  if (t.done === done) return t;
-  await rec.before("task", taskId, ["done", "doneAt", "voided"]);
-  const row = await tx.task.update({ where: { id: taskId }, data: { done, doneAt: done ? new Date() : null, voided: false } });
+  if (t.done === done && !t.voided) return t;
+  await rec.before("task", taskId, ["done", "doneAt", "voided", "status"]);
+  const row = await tx.task.update({ where: { id: taskId }, data: { done, doneAt: done ? new Date() : null, voided: false, status: "open" } });
   if (done && t.leadId) await addActivity(tx, rec, t.leadId, { kind: "task", text: `בוצעה משימה: ${t.title}`, userId: by.id });
   return row;
+}
+
+/** פתוחה, בטיפול, הושלמה or בוטלה. A cancelled task is closed without counting as done. */
+export async function setTaskState(tx: Tx, rec: Recorder, taskId: string, state: TaskState, by: By) {
+  const t = await tx.task.findUniqueOrThrow({ where: { id: taskId } });
+  if (taskState(t) === state) return t;
+  if (state === "done") return setTaskDone(tx, rec, taskId, true, by);
+  await rec.before("task", taskId, ["done", "doneAt", "voided", "status"]);
+  if (state === "cancel") {
+    const row = await tx.task.update({ where: { id: taskId }, data: { done: true, doneAt: new Date(), voided: true, status: "open" } });
+    if (t.leadId) await addActivity(tx, rec, t.leadId, { kind: "task", text: `בוטלה משימה: ${t.title}`, userId: by.id });
+    return row;
+  }
+  return tx.task.update({ where: { id: taskId }, data: { done: false, doneAt: null, voided: false, status: state } });
 }
 
 // ---------------------------------------------------------------- the call queue

@@ -176,6 +176,49 @@ try {
     ok("finishing a task names it", (await toast(p)).startsWith("בוצע:"));
     ok("a finished task stays in place", (await p.locator(".tlist li").count()) === before);
   }
+  // ---- a task for a client, due a minute ago: it gets a status and pops up when its time comes ----
+  await p.goto(`${BASE}/tasks`);
+  await p.waitForTimeout(1500);
+  const [today, minuteAgo] = await p.evaluate(() => {
+    const d = new Date(Date.now() - 60_000);
+    const two = (n) => String(n).padStart(2, "0");
+    return [`${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`, `${two(d.getHours())}:${two(d.getMinutes())}`];
+  });
+  await p.click('.head-actions button:has-text("משימה")');
+  await p.waitForSelector(".drawer textarea");
+  const title = "לשלוח מפרט טכני " + (Date.now() % 1000);
+  await p.fill(".drawer textarea", title);
+  await p.click(".drawer .lead-pick input");
+  await p.waitForSelector(".drawer .lead-pick-list button", { timeout: 10000 });
+  const clientName = (await p.locator(".drawer .lead-pick-list button b").first().innerText()).trim();
+  await p.click(".drawer .lead-pick-list button >> nth=0");
+  const canToday = await p.locator(`.drawer select option[value="${today}"]`).count();
+  if (canToday) {
+    await p.selectOption(".drawer select >> nth=0", today);
+    await p.fill(".drawer input[type=time]", minuteAgo);
+  }
+  await p.click(".drawer button[type=submit]");
+  ok("a task can be linked to a client", (await toast(p)).includes("המשימה נוספה"));
+  const row = p.locator(`.tlist li:has-text("${title}")`);
+  await row.waitFor({ timeout: 10000 });
+  ok("the task shows its client", (await row.innerText()).includes(clientName), clientName);
+  await row.locator(".tsel select").selectOption("progress");
+  ok("a task can be marked in progress", (await toast(p)).includes("בטיפול"));
+  if (canToday) {
+    await p.goto(`${BASE}/dashboard`);
+    await p.waitForSelector(".remind", { timeout: 15000 }).catch(() => {});
+    const shown = (await p.locator(".remind h2").textContent().catch(() => "")) || "";
+    ok("a task whose time has come pops up", shown.includes(title), shown || "nothing popped up");
+  }
+  // done from the reminder itself, so these tasks stop popping up in the steps below
+  for (let i = 0; i < 10 && (await p.locator(".remind").count()); i++) {
+    await p.click('.remind button:has-text("בוצע")');
+    await p.waitForTimeout(600);
+  }
+  await p.goto(`${BASE}/account`);
+  await p.waitForSelector('.panel:has-text("תזכורות בטלפון") button, .panel:has-text("תזכורות בטלפון") p.muted', { timeout: 10000 }).catch(() => {});
+  // the test browser always reports notifications as blocked, so either state counts as the switch working
+  ok("the account screen has the phone reminders switch", (await p.locator('button:has-text("הפעלת תזכורות בטלפון הזה"), p:has-text("ההתראות חסומות")').count()) === 1);
   await p.waitForTimeout(1200);
   await p.click(".top .new-lead");
   await p.fill(".drawer input >> nth=0", "ליד מבדיקה");

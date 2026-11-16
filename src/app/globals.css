@@ -1062,3 +1062,39 @@ a.cev,a.mev{text-decoration:none}
 .mc-hist time{display:block;margin-top:2px;font-size:var(--fs-1);color:var(--ink-3)}
 .mc-host-note{margin-top:12px;font-size:var(--fs-1)}
 @media (max-width:1100px){.mc-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* ---------- Tasks: status, client, reminders ---------- */
+.tlist li{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line-soft)}
+.tlist li:first-child{border-top:0}
+.tlist li > .trow{flex:1;min-width:0;border-top:0}
+.tsel{position:relative;display:inline-flex;align-items:center;flex:none;height:30px;padding:0 8px;border-radius:8px;font-size:var(--fs-1);font-weight:600}
+.tsel select{appearance:none;-webkit-appearance:none;border:0;background:transparent;color:inherit;font:inherit;padding-inline-end:14px;cursor:pointer}
+.tsel::after{content:"";position:absolute;inset-inline-end:8px;top:50%;width:5px;height:5px;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:translateY(-70%) rotate(45deg);pointer-events:none}
+.tsel:focus-within{outline:2px solid var(--blue);outline-offset:2px}
+.ts-open{background:#EEF2F8;color:var(--ink-2)}
+.ts-progress{background:#FFF4DB;color:#744A00}
+.ts-done{background:var(--wa-50);color:var(--wa)}
+.ts-cancel{background:#EDF0F4;color:#4E5768}
+.lead-chip{display:flex;align-items:center;gap:8px;min-height:42px;padding:0 6px 0 12px;border:1px solid var(--blue-100);border-radius:10px;background:var(--blue-50);color:var(--navy)}
+.lead-chip svg{width:16px;height:16px;flex:none}
+.lead-chip b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lead-pick{position:relative}
+.lead-pick > label{font-size:var(--fs-1);font-weight:500;color:var(--ink-2)}
+.lead-pick-list{position:absolute;inset-inline:0;top:100%;z-index:5;list-style:none;margin:4px 0 0;padding:4px;max-height:260px;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,20,60,.15)}
+.lead-pick-list button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;padding:8px 10px;border:0;border-radius:8px;background:transparent;text-align:start}
+.lead-pick-list button:hover,.lead-pick-list button:focus-visible{background:#F2F5FA}
+.lead-pick-list small{color:var(--ink-3);font-size:var(--fs-1)}
+.remind-dock{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom,0px));inset-inline-end:24px;z-index:80;width:min(400px,calc(100% - 24px))}
+.remind{display:flex;flex-direction:column;gap:10px;padding:18px;border:2px solid var(--blue);border-radius:16px;background:var(--surface);box-shadow:0 20px 60px rgba(0,20,60,.35)}
+@media (prefers-reduced-motion:no-preference){.remind{animation:remindIn .25s ease-out}}
+@keyframes remindIn{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}
+.remind-kicker{display:flex;align-items:center;gap:8px;color:var(--blue-ink);font-weight:600}
+.remind h2{font-size:var(--fs-4)}
+.remind-acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.remind-acts .bigbtn{min-height:52px;font-size:var(--fs-2)}
+.push-on p{display:flex;align-items:center;gap:8px;color:var(--wa)}
+@media (max-width:760px){
+  .tsel{height:44px}
+  .remind-acts{grid-template-columns:1fr 1fr}
+}
+@media (max-width:900px){.remind-dock{bottom:calc(76px + env(safe-area-inset-bottom,0px));inset-inline:12px;width:auto}}

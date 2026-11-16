@@ -13,17 +13,17 @@ datasource db {
 // ---------------------------------------------------------------- auth
 
 model User {
-  id                  String    @id
+  id                  String   @id
   name                String
-  email               String    @unique
-  emailVerified       Boolean   @default(false)
+  email               String   @unique
+  emailVerified       Boolean  @default(false)
   image               String?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-  phoneNumber         String?   @unique
-  phoneNumberVerified Boolean?  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  phoneNumber         String?  @unique
+  phoneNumberVerified Boolean? @default(false)
   // every account signs in with a second step (code by SMS or WhatsApp)
-  twoFactorEnabled    Boolean?  @default(true)
+  twoFactorEnabled    Boolean? @default(true)
 
   roleId      String
   role        Role      @relation(fields: [roleId], references: [id])
@@ -35,17 +35,18 @@ model User {
   // receives new leads in the automatic distribution
   autoAssign  Boolean   @default(false)
 
-  sessions      Session[]
-  accounts      Account[]
-  twoFactors    TwoFactor[]
-  invites       Invite[]   @relation("InviteUser")
-  ownedLeads    Lead[]     @relation("LeadOwner")
-  tasks         Task[]     @relation("TaskUser")
-  activities    Activity[] @relation("ActivityUser")
-  meetingsSet   Meeting[]  @relation("MeetingSetBy")
-  meetingsHosted Meeting[] @relation("MeetingHost")
-  shifts        WorkShift[] @relation("ShiftUser")
-  signDevices   SignDevice[] @relation("SignDeviceUser")
+  sessions          Session[]
+  accounts          Account[]
+  twoFactors        TwoFactor[]
+  invites           Invite[]           @relation("InviteUser")
+  ownedLeads        Lead[]             @relation("LeadOwner")
+  tasks             Task[]             @relation("TaskUser")
+  activities        Activity[]         @relation("ActivityUser")
+  meetingsSet       Meeting[]          @relation("MeetingSetBy")
+  meetingsHosted    Meeting[]          @relation("MeetingHost")
+  shifts            WorkShift[]        @relation("ShiftUser")
+  signDevices       SignDevice[]       @relation("SignDeviceUser")
+  pushSubscriptions PushSubscription[] @relation("PushUser")
 
   @@index([roleId])
   @@map("user")
@@ -218,18 +219,18 @@ model Lead {
 }
 
 model Inquiry {
-  id        String   @id @default(cuid())
-  leadId    String
-  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  source    String
-  projectId String?
-  project   Project? @relation(fields: [projectId], references: [id])
-  campaign  String?
-  page      String?
-  payload   Json?
+  id         String   @id @default(cuid())
+  leadId     String
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  source     String
+  projectId  String?
+  project    Project? @relation(fields: [projectId], references: [id])
+  campaign   String?
+  page       String?
+  payload    Json?
   // imported inquiries: importing the same file again doesn't add them twice
   externalId String?  @unique
-  createdAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 
   @@index([leadId])
 }
@@ -264,19 +265,19 @@ model Meeting {
   source     String? // how the client arrived (Fireberry: מקור הגעה)
   repName    String? // the rep's name in Fireberry, kept when that rep has no user here
   externalId String?  @unique // imported meetings: the same one is never imported twice
-  projectId String?
-  project   Project? @relation(fields: [projectId], references: [id])
-  startAt   DateTime
-  place     String
-  status    String   @default("set") // set | cancel | held
-  confirmed Boolean  @default(false)
-  setById   String?
-  setBy     User?    @relation("MeetingSetBy", fields: [setById], references: [id])
-  hostId    String?
-  host      User?    @relation("MeetingHost", fields: [hostId], references: [id])
-  note      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  projectId  String?
+  project    Project? @relation(fields: [projectId], references: [id])
+  startAt    DateTime
+  place      String
+  status     String   @default("set") // set | cancel | held
+  confirmed  Boolean  @default(false)
+  setById    String?
+  setBy      User?    @relation("MeetingSetBy", fields: [setById], references: [id])
+  hostId     String?
+  host       User?    @relation("MeetingHost", fields: [hostId], references: [id])
+  note       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([startAt])
   @@index([leadId])
@@ -295,6 +296,10 @@ model Task {
   doneAt      DateTime?
   auto        String? // retry | callback | resched
   voided      Boolean   @default(false)
+  /// open | progress. Done and cancelled come from done and voided (cancelled = closed without being done).
+  status      String    @default("open")
+  /// when the reminder for the due time went out to the person's phone
+  remindedAt  DateTime?
   createdById String?
   createdAt   DateTime  @default(now())
 
@@ -432,6 +437,20 @@ model SignChallenge {
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/// A phone or browser that gets reminders (web push). Removed when the browser says it is gone.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation("PushUser", fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
 
   @@index([userId])
 }

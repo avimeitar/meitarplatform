@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { run, type ActionResult } from "@/lib/action";
 import { audit } from "@/lib/audit";
-import { isLeadStatus, isMeetingState, isMeetingStatus, MANUAL_SOURCES, MEETING_STATES, meetingClient, OFFICE, REASONS } from "@/lib/crm/constants";
+import { isLeadStatus, isMeetingState, isMeetingStatus, isTaskState, MANUAL_SOURCES, MEETING_STATES, meetingClient, OFFICE, REASONS, TASK_STATES } from "@/lib/crm/constants";
 import { LATER, laterDate, laterLabel, type LaterKey } from "@/lib/crm/dates";
 import * as crm from "@/lib/crm/service";
 import { prisma } from "@/lib/db";
@@ -422,6 +422,40 @@ export async function taskDoneAction(taskId: string, done: boolean): Promise<Act
     const { undoId } = await withUndo(u.id, done ? "סימון משימה כבוצעה" : "החזרת משימה", (tx, rec) => crm.setTaskDone(tx, rec, t.id, done, by(u)));
     refresh();
     return { message: (done ? "בוצע: " : "חזר לפתוחות: ") + t.title, undoId };
+  });
+}
+
+/** פתוחה, בטיפול, הושלמה or בוטלה. */
+export async function taskStateAction(taskId: string, state: string): Promise<ActionResult> {
+  return run(async () => {
+    const u = await requireActionUser();
+    if (!isTaskState(state)) throw new ActionError("סטטוס לא מוכר");
+    const t = await prisma.task.findUnique({ where: { id: String(taskId) } });
+    if (!t) throw new ActionError("המשימה לא נמצאה");
+    if (t.userId !== u.id && !can(u, "tasks.assign")) throw new ActionError("אפשר לעדכן רק משימות שלך");
+    if (t.userId !== u.id && t.leadId) await leadFor(u, t.leadId);
+    const { undoId } = await withUndo(u.id, "עדכון סטטוס משימה", (tx, rec) => crm.setTaskState(tx, rec, t.id, state, by(u)));
+    refresh();
+    return { message: `${t.title}: ${TASK_STATES[state].l}`, undoId };
+  });
+}
+
+/**
+ * My tasks that fell due in the last half hour, for the reminder that pops up on screen. Older ones are in the overdue list,
+ * so someone signing in after a day off isn't met by a pile of pop-ups. Automatic "try again" reminders stay in the call queue.
+ */
+export async function dueTasksAction(): Promise<ActionResult<{ id: string; title: string; dueAt: string; leadId: string | null; leadName: string | null }[]>> {
+  return run(async () => {
+    const u = await requireActionUser();
+    const now = new Date();
+    const rows = await prisma.task.findMany({
+      where: { userId: u.id, done: false, dueAt: { lte: now, gte: new Date(now.getTime() - 30 * 60_000) }, OR: [{ auto: null }, { auto: { not: "retry" } }] },
+      // the one that just fell due first
+      orderBy: { dueAt: "desc" },
+      take: 10,
+      include: { lead: { select: { name: true } } },
+    });
+    return { data: rows.map((t) => ({ id: t.id, title: t.title, dueAt: t.dueAt.toISOString(), leadId: t.leadId, leadName: t.lead?.name ?? null })) };
   });
 }
 

@@ -6,6 +6,8 @@ import { openTaskWhere, taskRow } from "@/lib/crm/views";
 import { prisma } from "@/lib/db";
 import { can, requirePageUser } from "@/lib/session";
 import { NewTaskButton } from "./NewTaskButton";
+import { PushButton } from "./PushButton";
+import { AutoSubmitForm } from "@/components/ui/AutoSubmitForm";
 
 export const metadata = { title: "משימות" };
 
@@ -42,6 +44,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
           <p className="sub">{canOthers ? "המשימות של כל הצוות. אפשר לתת משימה לכל אחד." : "המשימות שלך. משימה שמסמנים כבוצעה נשארת במקום כמה דקות, למקרה של טעות."}</p>
         </div>
         <div className="head-actions">
+          <PushButton />
           <NewTaskButton people={people} meId={u.id} canAssign={canOthers} />
         </div>
       </div>
@@ -54,7 +57,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
           ))}
         </div>
         {canOthers && (
-          <form action="/tasks" className="filters">
+          <AutoSubmitForm action="/tasks" className="filters">
             <input type="hidden" name="f" value={f} />
             <label className="sel">
               <span className="sr">של מי</span>
@@ -70,7 +73,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
             <button type="submit" className="btn sm">
               הצגה
             </button>
-          </form>
+          </AutoSubmitForm>
         )}
       </div>
       <div className="panel">
