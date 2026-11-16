@@ -48,10 +48,10 @@ export function LeadsTable({ rows, canBulk, people, query, canCreate }: { rows: 
     <>
       {canBulk && sel.size > 0 && (
         <div className="bulk">
-          <b>{sel.size === 1 ? "ליד אחד נבחר" : `${sel.size} לידים נבחרו`}</b>
+          <b>{sel.size === 1 ? "לקוח אחד נבחר" : `${sel.size} לקוחות נבחרו`}</b>
           {asking ? (
             <>
-              <span className="bulk-q">{sel.size === 1 ? `לשייך את הליד ל${targetName}?` : `לשייך ${sel.size} לידים ל${targetName}?`}</span>
+              <span className="bulk-q">{sel.size === 1 ? `לשייך את הלקוח ל${targetName}?` : `לשייך ${sel.size} לקוחות ל${targetName}?`}</span>
               <button type="button" className="btn sm primary" disabled={moving} onClick={bulkAssign}>
                 {moving ? "משייכים…" : "כן, לשייך"}
               </button>
@@ -89,7 +89,7 @@ export function LeadsTable({ rows, canBulk, people, query, canCreate }: { rows: 
               {canBulk && (
                 <th className="c-cb">
                   <label className="cbx">
-                    <input type="checkbox" aria-label="בחירת כל הלידים המוצגים" checked={rows.length > 0 && rows.every((r) => sel.has(r.id))} onChange={(e) => setSel(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())} />
+                    <input type="checkbox" aria-label="בחירת כל הלקוחות המוצגים" checked={rows.length > 0 && rows.every((r) => sel.has(r.id))} onChange={(e) => setSel(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())} />
                   </label>
                 </th>
               )}
@@ -155,19 +155,19 @@ export function LeadsTable({ rows, canBulk, people, query, canCreate }: { rows: 
                 <td colSpan={10} className="empty" style={{ textAlign: "center" }}>
                   {query ? (
                     <>
-                      לא מצאנו ליד עם ״{query}״.
+                      לא מצאנו לקוח עם ״{query}״.
                       {canCreate && (
                         <>
                           <br />
                           <button type="button" className="btn primary" style={{ marginTop: 12 }} onClick={() => newLead(query)}>
                             <Icon name="plus" />
-                            להוסיף כליד חדש
+                            להוסיף כלקוח חדש
                           </button>
                         </>
                       )}
                     </>
                   ) : (
-                    "אין כאן לידים כרגע."
+                    "אין כאן לקוחות כרגע."
                   )}
                 </td>
               </tr>

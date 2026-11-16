@@ -162,7 +162,7 @@ export async function deleteUserAction(userId: string, reassignTo: string): Prom
     let heir: { id: string; name: string } | null = null;
     if (reassignTo !== "auto") {
       heir = await prisma.user.findFirst({ where: { id: reassignTo, active: true, deletedAt: null, NOT: { id: target.id } }, select: { id: true, name: true } });
-      if (!heir) throw new ActionError("צריך לבחור למי להעביר את הלידים", "reassignTo");
+      if (!heir) throw new ActionError("צריך לבחור למי להעביר את הלקוחות", "reassignTo");
     }
     const counts = await prisma.$transaction(async (tx) => {
       await tx.user.update({ where: { id: target.id }, data: { autoAssign: false } });
@@ -173,7 +173,7 @@ export async function deleteUserAction(userId: string, reassignTo: string): Prom
         const owner = heir ? heir.id : pick!();
         await tx.lead.update({ where: { id: l.id }, data: { ownerId: owner } });
         if (owner) await tx.leadAssignment.create({ data: { leadId: l.id, userId: owner, byId: u.id } });
-        await tx.activity.create({ data: { leadId: l.id, kind: "status", text: `הליד הועבר אחרי שהחשבון של ${target.name} נמחק`, auto: "העברה אוטומטית במחיקת משתמש", userId: u.id } });
+        await tx.activity.create({ data: { leadId: l.id, kind: "status", text: `הלקוח הועבר אחרי שהחשבון של ${target.name} נמחק`, auto: "העברה אוטומטית במחיקת משתמש", userId: u.id } });
         await tx.task.updateMany({ where: { leadId: l.id, done: false, userId: target.id }, data: { userId: owner ?? u.id } });
       }
       const otherTasks = await tx.task.updateMany({ where: { userId: target.id, done: false }, data: { userId: heir?.id ?? u.id } });
@@ -191,7 +191,7 @@ export async function deleteUserAction(userId: string, reassignTo: string): Prom
     await revokeSessions(target.id);
     await audit({ actorId: u.id, actorName: u.name, action: "user.delete", targetType: "user", targetId: target.id, targetName: target.name, meta: { ...counts, to: heir?.name ?? "חלוקה אוטומטית" }, ip: await requestIp() });
     refresh();
-    return { message: `החשבון של ${target.name} נמחק. ${counts.leads === 1 ? "ליד פתוח אחד הועבר" : counts.leads + " לידים פתוחים הועברו"} ל${heir?.name ?? "חלוקה האוטומטית"}` };
+    return { message: `החשבון של ${target.name} נמחק. ${counts.leads === 1 ? "לקוח פתוח אחד הועבר" : counts.leads + " לקוחות פתוחים הועברו"} ל${heir?.name ?? "חלוקה האוטומטית"}` };
   });
 }
 

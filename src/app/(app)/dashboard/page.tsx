@@ -43,8 +43,8 @@ async function AgentHome() {
       </div>
       <div className="hero-work">
         <div>
-          <h2>{q.length ? nOf(q.length, "ליד אחד מחכה לך", "לידים מחכים לך") : "אין לידים שמחכים לך עכשיו"}</h2>
-          <p>מטפלים בליד אחד בכל פעם, לפי הסדר שהמערכת קובעת.</p>
+          <h2>{q.length ? nOf(q.length, "לקוח אחד מחכה לך", "לקוחות מחכים לך") : "אין לקוחות שמחכים לך עכשיו"}</h2>
+          <p>מטפלים בלקוח אחד בכל פעם, לפי הסדר שהמערכת קובעת.</p>
           <div className="today-stats">
             <span>
               <b>{d.calls}</b> שיחות היום
@@ -81,7 +81,7 @@ async function AgentHome() {
               ))}
             </ul>
           ) : (
-            <p className="empty">הכול מטופל. לידים חדשים יופיעו כאן.</p>
+            <p className="empty">הכול מטופל. לקוחות חדשים יופיעו כאן.</p>
           )}
         </div>
         <div className="panel">
@@ -113,7 +113,7 @@ async function ManagerHome({ days }: { days: number }) {
   const unassigned = d.unassignedIds;
   const canAssign = can(u, "leads.assign");
   const night = new Date(d.nightStart);
-  const F = ["לידים", "נוצר קשר", "נקבעה פגישה", "התקיימה פגישה", "נחתמה עסקה"];
+  const F = ["לקוחות", "נוצר קשר", "נקבעה פגישה", "התקיימה פגישה", "נחתמה עסקה"];
   const rate = (a: number, b: number) => (b ? Math.round((a / b) * 100) + "%" : "0%");
   return (
     <section>
@@ -123,7 +123,7 @@ async function ManagerHome({ days }: { days: number }) {
             {greet()}, {u.firstName}
           </h1>
           <p className="sub">
-            {today()}. {d.overnightCount === 1 ? "ליד אחד נכנס" : `${d.overnightCount} לידים נכנסו`} מאז {dayLabel(night)} ב-19:00.
+            {today()}. {d.overnightCount === 1 ? "לקוח אחד נכנס" : `${d.overnightCount} לקוחות נכנסו`} מאז {dayLabel(night)} ב-19:00.
           </p>
         </div>
       </div>
@@ -131,7 +131,7 @@ async function ManagerHome({ days }: { days: number }) {
         {unassigned.length > 0 && (
           <a className="achip red" href="#night">
             <Icon name="users" />
-            {unassigned.length === 1 ? "ליד חדש אחד עוד לא שויך" : `${unassigned.length} לידים חדשים עוד לא שויכו`}
+            {unassigned.length === 1 ? "לקוח חדש אחד עוד לא שויך" : `${unassigned.length} לקוחות חדשים עוד לא שויכו`}
           </a>
         )}
         {d.stale > 0 && (
@@ -156,7 +156,7 @@ async function ManagerHome({ days }: { days: number }) {
       <div className="grid-2 wide" style={{ marginTop: 0 }}>
         <div className="panel" id="night">
           <div className="panel-head">
-            <h2>לידים חדשים</h2>
+            <h2>לקוחות חדשים</h2>
             <span className="muted">מאז {dayLabel(night)} 19:00</span>
           </div>
           {d.overnight.length ? (
@@ -170,7 +170,7 @@ async function ManagerHome({ days }: { days: number }) {
               ))}
             </ul>
           ) : (
-            <p className="empty">לא נכנסו לידים חדשים.</p>
+            <p className="empty">לא נכנסו לקוחות חדשים.</p>
           )}
           {canAssign && <AutoAssignAll leadIds={unassigned} />}
         </div>
@@ -186,7 +186,7 @@ async function ManagerHome({ days }: { days: number }) {
       </div>
       <div className="panel funnel">
         <div className="panel-head">
-          <h2>מליד לעסקה {days === 1 ? "היום" : `ב-${days} הימים האחרונים`}</h2>
+          <h2>מלקוח לעסקה {days === 1 ? "היום" : `ב-${days} הימים האחרונים`}</h2>
           <div className="seg" role="group" aria-label="תקופה">
             {[
               [1, "היום"],
@@ -200,7 +200,7 @@ async function ManagerHome({ days }: { days: number }) {
             ))}
           </div>
         </div>
-        <ol className="metro big" aria-label="משפך לידים">
+        <ol className="metro big" aria-label="משפך לקוחות">
           {d.funnel.map((n, i) => (
             <li key={F[i]}>
               <b className="n">{n}</b>

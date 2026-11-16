@@ -5,7 +5,7 @@ import { formatPhone } from "@/lib/phone";
 import { can, requirePageUser } from "@/lib/session";
 import { LeadCard, type LeadCardData } from "./LeadCard";
 
-export const metadata = { title: "כרטיס ליד" };
+export const metadata = { title: "כרטיס לקוח" };
 
 export default async function LeadPage({ params }: { params: Promise<{ id: string }> }) {
   const u = await requirePageUser();

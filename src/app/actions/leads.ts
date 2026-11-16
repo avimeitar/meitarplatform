@@ -23,8 +23,8 @@ function refresh() {
 
 async function leadFor(u: CurrentUser, leadId: string) {
   const lead = await prisma.lead.findUnique({ where: { id: String(leadId) } });
-  if (!lead) throw new ActionError("הליד לא נמצא. אולי הוא נמחק.");
-  if (!can(u, "leads.view_all") && lead.ownerId !== u.id) throw new ActionError("אין לך גישה לליד הזה");
+  if (!lead) throw new ActionError("הלקוח לא נמצא. אולי הוא נמחק.");
+  if (!can(u, "leads.view_all") && lead.ownerId !== u.id) throw new ActionError("אין לך גישה ללקוח הזה");
   return lead;
 }
 
@@ -72,23 +72,23 @@ export async function createLeadAction(input: z.input<typeof newLeadSchema>): Pr
     let owner: string | "auto" | null = u.id;
     if (data.owner === "auto") owner = "auto";
     else if (data.owner !== u.id) {
-      if (!can(u, "leads.assign")) throw new ActionError("אין לך הרשאה לשייך לידים לאחרים", "owner");
+      if (!can(u, "leads.assign")) throw new ActionError("אין לך הרשאה לשייך לקוחות לאחרים", "owner");
       const target = await prisma.user.findFirst({ where: { id: data.owner, active: true, deletedAt: null } });
       if (!target) throw new ActionError("מנהל הלקוח שנבחר לא פעיל", "owner");
       owner = target.id;
     }
     const source = (await getLists()).sources.includes(data.source) ? data.source : "אחר";
-    const { result, undoId } = await withUndo(u.id, "הוספת ליד", (tx, rec) =>
+    const { result, undoId } = await withUndo(u.id, "הוספת לקוח", (tx, rec) =>
       crm.createOrMergeLead(tx, rec, { name: data.name, phone, email: data.email || null, source, projectId: project.id, owner, consent: data.consent }, by(u)),
     );
     refresh();
     // someone who sees only their own leads isn't shown another agent's lead
     const hidden = result.duplicate && !can(u, "leads.view_all") && result.ownerId !== u.id;
     const message = hidden
-      ? "הטלפון הזה כבר שייך לליד שמנוהל בידי מישהו אחר. הפנייה נוספה לכרטיס הקיים"
+      ? "הטלפון הזה כבר שייך ללקוח שמנוהל בידי מישהו אחר. הפנייה נוספה לכרטיס הקיים"
       : result.duplicate
         ? `הטלפון כבר קיים, ולכן הפנייה נוספה לכרטיס הקיים`
-        : `הליד ${data.name} נשמר` + (result.ownerName ? (result.ownerName === u.name ? " אצלך" : ` ושויך ל${result.ownerName}`) : "");
+        : `הלקוח ${data.name} נשמר` + (result.ownerName ? (result.ownerName === u.name ? " אצלך" : ` ושויך ל${result.ownerName}`) : "");
     return { message, undoId: result.duplicate ? undefined : undoId, data: { leadId: hidden ? "" : result.leadId, duplicate: result.duplicate } };
   });
 }
@@ -270,26 +270,26 @@ export async function assignLeadAction(leadId: string, ownerId: string | null): 
       if (!t) throw new ActionError("המשתמש שנבחר לא פעיל");
       target = t.id;
     }
-    const { undoId } = await withUndo(u.id, "שיוך ליד", (tx, rec) => crm.assignLead(tx, rec, lead.id, target, by(u)));
+    const { undoId } = await withUndo(u.id, "שיוך לקוח", (tx, rec) => crm.assignLead(tx, rec, lead.id, target, by(u)));
     refresh();
     const name = target ? (await prisma.user.findUnique({ where: { id: target }, select: { name: true } }))?.name : null;
-    return { message: name ? `הליד שויך ל${name}` : "השיוך הוסר", undoId };
+    return { message: name ? `הלקוח שויך ל${name}` : "השיוך הוסר", undoId };
   });
 }
 
 export async function bulkAssignAction(leadIds: string[], ownerId: string): Promise<ActionResult> {
   return run(async () => {
     const u = await requireActionUser("leads.assign");
-    if (!can(u, "leads.bulk")) throw new ActionError("אין לך הרשאה לפעולות על כמה לידים");
+    if (!can(u, "leads.bulk")) throw new ActionError("אין לך הרשאה לפעולות על כמה לקוחות");
     const asked = [...new Set((leadIds ?? []).map(String))].slice(0, 500);
     const t = await prisma.user.findFirst({ where: { id: String(ownerId), active: true, deletedAt: null } });
     if (!t) throw new ActionError("המשתמש שנבחר לא פעיל");
     // only leads this person may see
     const ids = (await prisma.lead.findMany({ where: { AND: [{ id: { in: asked } }, leadScope(u)] }, select: { id: true } })).map((l) => l.id);
-    if (!ids.length) throw new ActionError("לא נבחרו לידים");
+    if (!ids.length) throw new ActionError("לא נבחרו לקוחות");
     const { undoId } = await withUndo(
       u.id,
-      "שיוך כמה לידים",
+      "שיוך כמה לקוחות",
       async (tx, rec) => {
         for (const id of ids) await crm.assignLead(tx, rec, id, t.id, by(u));
       },
@@ -297,7 +297,7 @@ export async function bulkAssignAction(leadIds: string[], ownerId: string): Prom
     );
     await audit({ actorId: u.id, actorName: u.name, action: "lead.bulk_assign", targetName: t.name, meta: { count: ids.length }, ip: await requestIp() });
     refresh();
-    return { message: ids.length === 1 ? `הליד שויך ל${t.name}` : `${ids.length} לידים שויכו ל${t.name}`, undoId };
+    return { message: ids.length === 1 ? `הלקוח שויך ל${t.name}` : `${ids.length} לקוחות שויכו ל${t.name}`, undoId };
   });
 }
 
@@ -329,7 +329,7 @@ export async function updateLeadAction(leadId: string, patch: z.input<typeof upd
       const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(p.nextAt);
       data.nextAt = m ? new Date(+m[1], +m[2] - 1, +m[3], 10, 0) : null;
     }
-    const { undoId } = await withUndo(u.id, "עדכון פרטי ליד", async (tx, rec) => {
+    const { undoId } = await withUndo(u.id, "עדכון פרטי לקוח", async (tx, rec) => {
       await rec.before("lead", lead.id, Object.keys(data));
       await tx.lead.update({ where: { id: lead.id }, data });
     });
@@ -377,7 +377,7 @@ export async function deleteLeadAction(leadId: string): Promise<ActionResult> {
     ]);
     await audit({ actorId: u.id, actorName: u.name, action: "lead.delete", targetType: "lead", targetId: lead.id, targetName: lead.name, ip: await requestIp() });
     refresh();
-    return { message: `הליד ${lead.name} נמחק` };
+    return { message: `הלקוח ${lead.name} נמחק` };
   });
 }
 
@@ -484,7 +484,7 @@ export async function autoAssignAction(leadIds: string[]): Promise<ActionResult>
     );
     refresh();
     if (!result) throw new ActionError("אין סוכנים בחלוקה האוטומטית. אפשר להוסיף אותם במסך המשתמשים.");
-    return { message: result === 1 ? "ליד אחד חולק אוטומטית" : `${result} לידים חולקו אוטומטית`, undoId };
+    return { message: result === 1 ? "לקוח אחד חולק אוטומטית" : `${result} לקוחות חולקו אוטומטית`, undoId };
   });
 }
 

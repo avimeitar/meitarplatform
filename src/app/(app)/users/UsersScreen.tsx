@@ -195,7 +195,7 @@ function UserForm({ roles, user }: { roles: RoleRow[]; user?: UserRow }) {
       </div>
       <label className="check">
         <input type="checkbox" checked={autoAssign} onChange={(e) => setAutoAssign(e.target.checked)} />
-        לכלול בחלוקה האוטומטית של לידים חדשים
+        לכלול בחלוקה האוטומטית של לקוחות חדשים
       </label>
       {err && !["name", "phone", "email", "roleId"].includes(err.field ?? "") && (
         <p className="form-error" role="alert">
@@ -293,9 +293,9 @@ function UserManage({ user, roles, people }: { user: UserRow; roles: RoleRow[]; 
     return (
       <div className="sheet-body">
         <p className="confirm-q">למחוק את {user.name}?</p>
-        <p className="muted">ההיסטוריה נשמרת עם השם. הלידים הפתוחים, המשימות והפגישות הבאות יעברו למי שבוחרים כאן. אי אפשר לבטל מחיקה.</p>
+        <p className="muted">ההיסטוריה נשמרת עם השם. הלקוחות הפתוחים, המשימות והפגישות הבאות יעברו למי שבוחרים כאן. אי אפשר לבטל מחיקה.</p>
         <label className="fld">
-          <span className="req">למי להעביר את הלידים הפתוחים?</span>
+          <span className="req">למי להעביר את הלקוחות הפתוחים?</span>
           <select value={heir} onChange={(e) => setHeir(e.target.value)}>
             <option value="">בוחרים…</option>
             <option value="auto">חלוקה אוטומטית בין הסוכנים</option>
@@ -361,7 +361,7 @@ function UserManage({ user, roles, people }: { user: UserRow; roles: RoleRow[]; 
             </span>
             <span>
               <b>למחוק את המשתמש</b>
-              <small>קודם בוחרים למי לעבור הלידים שלו</small>
+              <small>קודם בוחרים למי לעבור הלקוחות שלו</small>
             </span>
           </button>
         )}

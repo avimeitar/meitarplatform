@@ -102,7 +102,7 @@ export async function setProjectActiveAction(projectId: string, active: boolean)
     const on = active === true;
     if (p.active === on) return { message: on ? "הפרויקט כבר פעיל" : "הפרויקט כבר לא פעיל" };
     if (!on && (await prisma.project.count({ where: { active: true, NOT: { id: p.id } } })) === 0) {
-      throw new ActionError("חייב להישאר לפחות פרויקט פעיל אחד, כדי שאפשר יהיה להוסיף לידים");
+      throw new ActionError("חייב להישאר לפחות פרויקט פעיל אחד, כדי שאפשר יהיה להוסיף לקוחות");
     }
     await prisma.project.update({ where: { id: p.id }, data: { active: on } });
     await audit({

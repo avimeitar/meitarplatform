@@ -60,7 +60,7 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
       <div className="page-head">
         <div>
           <h1>פגישות</h1>
-          <p className="sub">אחרי כל פגישה מסמנים מה קרה: התקיימה, אי-הגעה, בוטלה או לתאם מחדש. אם הפגישה שייכת לליד, הוא מתעדכן לבד.</p>
+          <p className="sub">אחרי כל פגישה מסמנים מה קרה: התקיימה, אי-הגעה, בוטלה או לתאם מחדש. אם הפגישה שייכת ללקוח, הוא מתעדכן לבד.</p>
         </div>
         <div className="head-actions">
           <div className="seg" role="group" aria-label="תצוגה">

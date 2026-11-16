@@ -55,8 +55,8 @@ function parseFiles(input: unknown): Parsed {
   if (files.length > MAX_FILES) throw new ActionError(`אפשר לייבא עד ${MAX_FILES} קבצים בפעם אחת`);
   if (files.reduce((n, f) => n + f.length, 0) > MAX_CHARS) throw new ActionError("הקבצים גדולים מדי. אפשר לייבא אותם בכמה פעמים");
   const kinds = files.map((f) => fireberryKind(parseCsv(f.slice(0, 20_000))[0] ?? []));
-  if (kinds.some((k) => !k)) throw new ActionError((files.length > 1 ? "אחד הקבצים לא זוהה. " : "הקובץ לא זוהה. ") + "צריך קובץ ייצוא מפיירברי (CSV) של לידים או של פגישות");
-  if (new Set(kinds).size > 1) throw new ActionError("נבחרו גם קובץ של לידים וגם קובץ של פגישות. צריך לייבא כל סוג בנפרד");
+  if (kinds.some((k) => !k)) throw new ActionError((files.length > 1 ? "אחד הקבצים לא זוהה. " : "הקובץ לא זוהה. ") + "צריך קובץ ייצוא מפיירברי (CSV) של לקוחות או של פגישות");
+  if (new Set(kinds).size > 1) throw new ActionError("נבחרו גם קובץ של לקוחות וגם קובץ של פגישות. צריך לייבא כל סוג בנפרד");
   if (kinds[0] === "meetings") {
     const rows = files.flatMap((f) => readFireberryMeetings(f));
     if (rows.length > MAX_ROWS) throw new ActionError(`בקבצים יותר מ-${MAX_ROWS} שורות. אפשר לייבא אותם בכמה פעמים`);
@@ -65,7 +65,7 @@ function parseFiles(input: unknown): Parsed {
   const rows: FbRow[] = [];
   for (const f of files) {
     const r = readFireberry(f);
-    if (r.missing.length) throw new ActionError((files.length > 1 ? "באחד הקבצים לא מצאנו" : "לא מצאנו בקובץ") + " עמודה של " + r.missing.map((m) => (m === "name" ? "שם לקוח" : "טלפון")).join(" ו") + ". צריך קובץ ייצוא של לידים מפיירברי (CSV)");
+    if (r.missing.length) throw new ActionError((files.length > 1 ? "באחד הקבצים לא מצאנו" : "לא מצאנו בקובץ") + " עמודה של " + r.missing.map((m) => (m === "name" ? "שם לקוח" : "טלפון")).join(" ו") + ". צריך קובץ ייצוא של לקוחות מפיירברי (CSV)");
     rows.push(...r.rows);
   }
   if (rows.length > MAX_ROWS) throw new ActionError(`בקבצים יותר מ-${MAX_ROWS} שורות. אפשר לייבא אותם בכמה פעמים`);
@@ -190,7 +190,7 @@ export async function runImportAction(files: string[], map: { sources: Record<st
   return run(async () => {
     const u = await requireActionUser("leads.import");
     const parsed = parseFiles(files);
-    if (parsed.kind !== "leads") throw new ActionError("אלה קבצים של פגישות, לא של לידים");
+    if (parsed.kind !== "leads") throw new ActionError("אלה קבצים של פגישות, לא של לקוחות");
     const rows = parsed.rows;
     const { projectIds, userIds } = await validIds();
     const proj = (source: string) => {
@@ -277,14 +277,14 @@ export async function runImportAction(files: string[], map: { sources: Record<st
           await runBatch(batch);
         } catch {
           revalidatePath("/", "layout");
-          throw new ActionError(`הייבוא נעצר באמצע. עד עכשיו נכנסו ${created} לידים חדשים ו-${merged} פניות לכרטיסים קיימים. אפשר להעלות שוב את אותו קובץ: מה שכבר נכנס לא ייכנס פעמיים.`);
+          throw new ActionError(`הייבוא נעצר באמצע. עד עכשיו נכנסו ${created} לקוחות חדשים ו-${merged} פניות לכרטיסים קיימים. אפשר להעלות שוב את אותו קובץ: מה שכבר נכנס לא ייכנס פעמיים.`);
         }
       }
     }
     const skipped = rows.length - good.length;
     await audit({ actorId: u.id, actorName: u.name, action: "lead.import", meta: { created, merged, again, skipped, files: parsed.files }, ip: await requestIp() });
     revalidatePath("/", "layout");
-    const parts = [`${created} לידים חדשים`, `${merged} צורפו לכרטיסים קיימים`];
+    const parts = [`${created} לקוחות חדשים`, `${merged} צורפו לכרטיסים קיימים`];
     if (again) parts.push(`${again} כבר יובאו בעבר ולא נוספו שוב`);
     parts.push(`${skipped} שורות דולגו`);
     return { message: `הייבוא הסתיים: ${parts.join(", ")}`, data: { created, merged, skipped } };
@@ -296,7 +296,7 @@ export async function runMeetingsImportAction(files: string[], map: { reps: Reco
   return run(async () => {
     const u = await requireActionUser("leads.import");
     const parsed = parseFiles(files);
-    if (parsed.kind !== "meetings") throw new ActionError("אלה קבצים של לידים, לא של פגישות");
+    if (parsed.kind !== "meetings") throw new ActionError("אלה קבצים של לקוחות, לא של פגישות");
     const { projectIds, userIds } = await validIds();
     const proj = (subject: string) => {
       const id = map?.subjects?.[subject || NO_SUBJECT];

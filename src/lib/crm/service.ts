@@ -123,7 +123,7 @@ export async function assignLead(tx: Tx, rec: Recorder, leadId: string, ownerId:
       await tx.task.update({ where: { id: t.id }, data: { userId: ownerId } });
     }
   }
-  await addActivity(tx, rec, leadId, { kind: "status", text: owner ? `הליד שויך ל${owner.name}` : "השיוך הוסר", userId: by?.id ?? null });
+  await addActivity(tx, rec, leadId, { kind: "status", text: owner ? `הלקוח שויך ל${owner.name}` : "השיוך הוסר", userId: by?.id ?? null });
 }
 
 // ---------------------------------------------------------------- new leads
@@ -155,11 +155,11 @@ export async function createOrMergeLead(
     await lockLead(tx, existing.id);
     const iq = await tx.inquiry.create({ data: { leadId: existing.id, ...inquiry } });
     rec.created("inquiry", iq.id);
-    await addActivity(tx, rec, existing.id, { kind: "in", text: `פנייה חוזרת מאותו טלפון. מקור: ${input.source}`, auto: "לא נוצר ליד כפול", userId: by?.id ?? null });
+    await addActivity(tx, rec, existing.id, { kind: "in", text: `פנייה חוזרת מאותו טלפון. מקור: ${input.source}`, auto: "לא נוצר לקוח כפול", userId: by?.id ?? null });
     let ownerId = existing.ownerId;
     let ownerName = existing.owner?.name ?? null;
     if (existing.status === "lost") {
-      await setLeadStatus(tx, rec, existing.id, "new", by?.id ?? null, { auto: "הליד פנה שוב, ולכן חזר ל״חדש״" });
+      await setLeadStatus(tx, rec, existing.id, "new", by?.id ?? null, { auto: "הלקוח פנה שוב, ולכן חזר ל״חדש״" });
       await setLead(tx, rec, existing.id, { attempts: 0, nextAt: null });
       // whoever had the lead before may have left
       if (!existing.owner || !existing.owner.active || existing.owner.deletedAt) {
@@ -192,7 +192,7 @@ export async function createOrMergeLead(
   if (ownerId) await recordAssignment(tx, rec, lead.id, ownerId, by?.id ?? null);
   await addActivity(tx, rec, lead.id, {
     kind: "in",
-    text: by ? `ליד חדש נוסף ידנית. מקור: ${input.source}` : `ליד חדש נכנס. מקור: ${input.source}`,
+    text: by ? `לקוח חדש נוסף ידנית. מקור: ${input.source}` : `לקוח חדש נכנס. מקור: ${input.source}`,
     auto: owner ? `שויך ל${owner.name}` : null,
     userId: by?.id ?? null,
   });
@@ -249,7 +249,7 @@ export async function logLost(tx: Tx, rec: Recorder, leadId: string, by: By, rea
   for (const m of future) {
     await rec.before("meeting", m.id, ["status", "confirmed"]);
     await tx.meeting.update({ where: { id: m.id }, data: { status: "cancel", confirmed: false } });
-    await addActivity(tx, rec, leadId, { kind: "meeting", text: `הפגישה של ${meetingWhen(m.startAt)} בוטלה`, auto: "הליד סומן ״לא רלוונטי״", userId: by.id });
+    await addActivity(tx, rec, leadId, { kind: "meeting", text: `הפגישה של ${meetingWhen(m.startAt)} בוטלה`, auto: "הלקוח סומן ״לא רלוונטי״", userId: by.id });
   }
   const cancelled = future.length === 0 ? "" : future.length === 1 ? ". הפגישה שנקבעה בוטלה" : `. ${future.length} פגישות שנקבעו בוטלו`;
   return `סומן ״לא רלוונטי״: ${reason}${cancelled}`;
@@ -342,7 +342,7 @@ export async function setMeetingStatus(tx: Tx, rec: Recorder, meetingId: string,
     const due = at(nextWorkday(), 10);
     await addTask(tx, rec, { leadId: lead.id, userId: lead.ownerId ?? m.setById ?? by.id, title: `לתאם מחדש פגישה עם ${lead.name}`, dueAt: due, auto: "resched", createdById: by.id });
     await setLead(tx, rec, lead.id, { nextAt: due });
-    return `${what}. הליד עבר ל״לתאם מחדש״ ונוצרה משימה`;
+    return `${what}. הלקוח עבר ל״לתאם מחדש״ ונוצרה משימה`;
   }
   return what;
 }
@@ -400,7 +400,7 @@ export async function buildQueue(userId: string, now = new Date()): Promise<Queu
   const seen = new Set<string>();
   for (const l of fresh) {
     seen.add(l.id);
-    q.push({ leadId: l.id, why: `ליד חדש. נכנס ${relTime(l.createdAt, now)}`, late: now.getTime() - l.createdAt.getTime() > 2 * HOUR });
+    q.push({ leadId: l.id, why: `לקוח חדש. נכנס ${relTime(l.createdAt, now)}`, late: now.getTime() - l.createdAt.getTime() > 2 * HOUR });
   }
   for (const l of due) {
     if (seen.has(l.id)) continue;

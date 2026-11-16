@@ -78,7 +78,7 @@ export function ImportScreen({ projects, users }: { projects: Ref[]; users: Pers
       <div className="page-head">
         <div>
           <h1>ייבוא מפיירברי</h1>
-          <p className="sub">מייצאים מפיירברי קובץ CSV של לידים או של פגישות, ומעלים אותו כאן. אפשר לבחור כמה קבצים יחד. לפני הייבוא רואים מה ייכנס.</p>
+          <p className="sub">מייצאים מפיירברי קובץ CSV של לקוחות או של פגישות, ומעלים אותו כאן. אפשר לבחור כמה קבצים יחד. לפני הייבוא רואים מה ייכנס.</p>
         </div>
       </div>
       <div className="panel">
@@ -103,7 +103,7 @@ export function ImportScreen({ projects, users }: { projects: Ref[]; users: Pers
           <p className="login-ok" role="status">
             {done.text}.{" "}
             <Link className="link" href={done.kind === "meetings" ? "/meetings?range=past&who=all" : "/leads"}>
-              {done.kind === "meetings" ? "לרשימת הפגישות" : "לרשימת הלידים"}
+              {done.kind === "meetings" ? "לרשימת הפגישות" : "לרשימת הלקוחות"}
             </Link>
           </p>
         )}
@@ -168,7 +168,7 @@ function LeadsStep({ p, projects, users, map, setA, setB, busy, go }: StepProps<
           <b>{p.total}</b>
         </div>
         <div className="kpi">
-          <span>לידים לייבוא</span>
+          <span>לקוחות לייבוא</span>
           <b>{fresh}</b>
         </div>
         <div className="kpi">
@@ -189,7 +189,7 @@ function LeadsStep({ p, projects, users, map, setA, setB, busy, go }: StepProps<
               {p.sources.map((s) => (
                 <tr key={s.source}>
                   <td>
-                    {s.source} <small>{s.count} לידים</small>
+                    {s.source} <small>{s.count} לקוחות</small>
                   </td>
                   <td>
                     <ProjectSelect value={map.a[s.source] ?? ""} onChange={(v) => setA(s.source, v)} label={`פרויקט עבור ${s.source}`} projects={projects} />
@@ -200,14 +200,14 @@ function LeadsStep({ p, projects, users, map, setA, setB, busy, go }: StepProps<
           </table>
         </div>
         <div className="panel">
-          <h2>למי שייך כל ליד?</h2>
-          <p className="muted">לפי ״מנהל לקוח״ בפיירברי. אם מנהל הלקוח לא קיים כאן, הליד ייכנס בלי שיוך, ואפשר לשייך אותו אחר כך.</p>
+          <h2>למי שייך כל לקוח?</h2>
+          <p className="muted">לפי ״מנהל לקוח״ בפיירברי. אם מנהל הלקוח לא קיים כאן, הלקוח ייכנס בלי שיוך, ואפשר לשייך אותו אחר כך.</p>
           <table className="data map-table">
             <tbody>
               {p.owners.map((o) => (
                 <tr key={o.name}>
                   <td>
-                    {o.name} <small>{o.count} לידים</small>
+                    {o.name} <small>{o.count} לקוחות</small>
                   </td>
                   <td>
                     <UserSelect value={map.b[o.name] ?? ""} onChange={(v) => setB(o.name, v)} label={`משתמש עבור ${o.name}`} users={users} none="לא לשייך" />
@@ -221,7 +221,7 @@ function LeadsStep({ p, projects, users, map, setA, setB, busy, go }: StepProps<
       </div>
       <div className="panel" style={{ marginTop: 16 }}>
         <p>
-          ייכנסו <b>{fresh}</b> לידים חדשים, ו-<b>{Math.max(0, p.existing - p.already)}</b> פניות יצורפו ללידים שכבר קיימים במערכת.
+          ייכנסו <b>{fresh}</b> לקוחות חדשים, ו-<b>{Math.max(0, p.existing - p.already)}</b> פניות יצורפו ללקוחות שכבר קיימים במערכת.
           {p.already ? ` ${p.already} שורות כבר יובאו בעבר ולא ייכנסו שוב.` : ""} הכול נרשם ביומן הפעולות.
         </p>
         <div className="row-end">
@@ -312,7 +312,7 @@ function MeetingsStep({ p, projects, users, map, setA, setB, busy, go }: StepPro
           ) : (
             "כל הפגישות בקבצים כבר נמצאות במערכת. "
           )}
-          כל פגישה נשמרת בפני עצמה, עם שם הלקוח והנושא מפיירברי, בלי ליד ובלי טלפון. רואים אותן במסך הפגישות.
+          כל פגישה נשמרת בפני עצמה, עם שם הלקוח והנושא מפיירברי, בלי כרטיס לקוח ובלי טלפון. רואים אותן במסך הפגישות.
           {p.noDate ? ` ${p.noDate} שורות בלי תאריך ידולגו.` : ""}
         </p>
         <div className="row-end">

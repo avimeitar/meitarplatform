@@ -95,7 +95,7 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
     <section>
       <Link className="back" href="/leads">
         <Icon name="back" />
-        לכל הלידים
+        לכל הלקוחות
       </Link>
       <div className="lead-head">
         <span className={"av lg" + (lead.ownerName ? "" : " ghost")}>{initials(lead.name)}</span>
@@ -135,7 +135,7 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
       </div>
 
       <div className="panel line-panel">
-        <ol className="metro" aria-label="שלב הליד. לחיצה על תחנה משנה את הסטטוס">
+        <ol className="metro" aria-label="שלב הלקוח. לחיצה על תחנה משנה את הסטטוס">
           {MAIN.map((s, i) => {
             const cls = mi >= 0 ? (i < mi ? "done" : i === mi ? "current" : "todo") : i <= anchor ? "done" : "todo";
             return (
@@ -202,7 +202,7 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
             {lead.meetings.length ? (
               lead.meetings.map((m) => <MeetingRow key={m.id} m={m} lead={sl} canEdit={perms.edit && m.canEdit} />)
             ) : (
-              <p className="empty">עדיין אין פגישות. פגישה שתתואם תעביר את הליד ל״נקבעה פגישה״.</p>
+              <p className="empty">עדיין אין פגישות. פגישה שתתואם תעביר את הלקוח ל״נקבעה פגישה״.</p>
             )}
           </div>
           <Details lead={lead} projects={projects} people={people} perms={perms} />
@@ -215,7 +215,7 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
               {confirmDelete ? (
                 <>
                   <p className="confirm-q">למחוק את {lead.name}?</p>
-                  <p className="muted">הליד, ההיסטוריה והמשימות שלו יימחקו. הפגישות שלו יישארו ברשימת הפגישות. אי אפשר לבטל.</p>
+                  <p className="muted">הלקוח, ההיסטוריה והמשימות שלו יימחקו. הפגישות שלו יישארו ברשימת הפגישות. אי אפשר לבטל.</p>
                   <div className="row-end">
                     <button type="button" className="btn ghost" onClick={() => setConfirmDelete(false)}>
                       לא
@@ -227,7 +227,7 @@ export function LeadCard({ lead, projects, people, perms, meId }: { lead: LeadCa
                 </>
               ) : (
                 <button type="button" className="btn ghost danger-text" onClick={() => setConfirmDelete(true)}>
-                  מחיקת הליד
+                  מחיקת הלקוח
                 </button>
               )}
             </div>
@@ -338,7 +338,7 @@ function Details({ lead, projects, people, perms }: { lead: LeadCardData; projec
   const created = new Date(lead.createdAt);
   return (
     <div className="panel">
-      <h2 className="h-sm">פרטי הליד</h2>
+      <h2 className="h-sm">פרטי הלקוח</h2>
       <dl className="kv">
         <dt>טלפון</dt>
         <dd>

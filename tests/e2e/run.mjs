@@ -94,6 +94,8 @@ try {
   await a.click('.drawer button:has-text("כן, להשבית")');
   await a.waitForTimeout(1200);
   await q.goto(`${BASE}/dashboard`);
+  // like "no access" above: the loading screen streams first, and the move to sign-in lands a moment later
+  await q.waitForURL("**/login**", { timeout: 10000 }).catch(() => {});
   ok("deactivating signs the person out at once", q.url().includes("/login"));
   await a.click('.ulist li:has-text("סוכן בדיקה") button:has-text("ניהול")');
   await a.click('.drawer button:has-text("למחוק את המשתמש")');
@@ -127,7 +129,7 @@ try {
     await p.waitForSelector(".drawer .opt");
     ok("after a call: four answers", (await p.locator(".drawer .opt").count()) === 4);
     await p.click('.drawer .opt:has-text("אין מענה")');
-    ok("no answer is logged and the queue moves on", (await toast(p)).includes("אין מענה") && (await pos()).startsWith("ליד 2"));
+    ok("no answer is logged and the queue moves on", (await toast(p)).includes("אין מענה") && (await pos()).startsWith("לקוח 2"));
     await p.click(".toast button");
     ok("undo", (await toast(p)).includes("בוטל"));
     await p.click(".wacts a.bigbtn.call");

@@ -88,7 +88,7 @@ export function OutcomeSheet({ lead, meetingId, onDone }: { lead: SheetLead; mee
       meet: `מתי הפגישה עם ${fn}?`,
       move: "מה המועד החדש לפגישה?",
       later: `מתי לחזור ל${fn}?`,
-      lost: `למה הליד של ${fn} לא רלוונטי?`,
+      lost: `למה הלקוח של ${fn} לא רלוונטי?`,
     };
     drawer.retitle(titles[step]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -130,7 +130,7 @@ export function OutcomeSheet({ lead, meetingId, onDone }: { lead: SheetLead; mee
         <div className="opts">
           <Opt icon="cc" tone="good" title="ההגעה אושרה" sub="הפגישה תסומן כמאושרת" disabled={busy} onClick={() => finish(confirmMeetingAction(meetingId, true))} />
           <Opt icon="cal" tone="warn" title="צריך לשנות מועד" sub="בוחרים יום ושעה חדשים" disabled={busy} onClick={() => setStep("move")} />
-          <Opt icon="x" tone="bad" title="הפגישה מבוטלת" sub="הליד יעבור ל״לתאם מחדש״" disabled={busy} onClick={() => finish(meetingStatusAction(meetingId, "cancel"))} />
+          <Opt icon="x" tone="bad" title="הפגישה מבוטלת" sub="הלקוח יעבור ל״לתאם מחדש״" disabled={busy} onClick={() => finish(meetingStatusAction(meetingId, "cancel"))} />
           <Opt icon="phone-x" tone="warn" title="אין מענה" sub="נזכיר לך לנסות שוב בעוד שעתיים" disabled={busy} onClick={() => finish(noAnswerAction(lead.id))} />
         </div>
       </div>
@@ -327,7 +327,7 @@ export function NewMeetingSheet({ onDone, initialDay, initialTime }: { onDone?: 
         <span>חיפוש לפי שם או טלפון</span>
         <input type="search" autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} />
       </label>
-      {!q && rows.length > 0 && <p className="q">הלידים שלך</p>}
+      {!q && rows.length > 0 && <p className="q">הלקוחות שלך</p>}
       <div className="opts">
         {rows.map((r) => (
           <Opt key={r.id} icon="users" title={r.name} sub={[r.projectName, "⁦" + r.phone + "⁩"].filter(Boolean).join(" · ")} onClick={() => setLead({ id: r.id, name: r.name, phoneRaw: "", projectName: r.projectName })} />
@@ -339,7 +339,7 @@ export function NewMeetingSheet({ onDone, initialDay, initialTime }: { onDone?: 
           החיפוש לא הצליח. אפשר לבדוק את החיבור ולנסות שוב.
         </p>
       )}
-      {state === "idle" && q && !rows.length && <p className="muted">לא מצאנו ליד בשם או בטלפון הזה.</p>}
+      {state === "idle" && q && !rows.length && <p className="muted">לא מצאנו לקוח בשם או בטלפון הזה.</p>}
     </div>
   );
 }
@@ -460,7 +460,7 @@ export function WonConfirm({ lead }: { lead: SheetLead }) {
         {lead.name}
         {lead.projectName ? `, ${lead.projectName}` : ""}
       </p>
-      <p className="muted">הליד יעבור ל״נחתמה עסקה״ ויופיע בעסקאות הסגורות של הפרויקט.</p>
+      <p className="muted">הלקוח יעבור ל״נחתמה עסקה״ ויופיע בעסקאות הסגורות של הפרויקט.</p>
       <button type="button" className="bigbtn call" disabled={busy} onClick={() => finish(setLeadStatusAction(lead.id, "won"))}>
         <Icon name="check" />
         כן, נחתמה עסקה

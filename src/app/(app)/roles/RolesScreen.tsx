@@ -120,7 +120,7 @@ function RoleForm({ role, groups, mine }: { role?: RoleView; groups: Group[]; mi
       </label>
       <label className="fld">
         <span>תיאור קצר</span>
-        <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="למשל: סוכן שמטפל רק בלידים מחו״ל" />
+        <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="למשל: סוכן שמטפל רק בלקוחות מחו״ל" />
       </label>
       {locked ? (
         <p className="login-hint">למנהל מערכת יש תמיד את כל ההרשאות, כדי שתמיד יהיה מי שיכול לנהל את המערכת.</p>

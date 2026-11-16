@@ -11,7 +11,7 @@ import { can, requirePageUser } from "@/lib/session";
 import { LeadsTable, type LeadRow } from "./LeadsTable";
 import { AutoSubmitForm } from "@/components/ui/AutoSubmitForm";
 
-export const metadata = { title: "לידים" };
+export const metadata = { title: "לקוחות" };
 
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const u = await requirePageUser();
@@ -58,7 +58,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     <section>
       <div className="page-head">
         <h1>
-          לידים <span className="count-lg">{total}</span>
+          לקוחות <span className="count-lg">{total}</span>
         </h1>
         {can(u, "leads.export") && (
           <div className="head-actions">
@@ -153,7 +153,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           </Link>
         )}
       </div>
-      {q && <p className="search-note">{total ? `חיפשנו בכל הלידים: ${total === 1 ? "נמצא ליד אחד" : `נמצאו ${total} לידים`}` : ""}</p>}
+      {q && <p className="search-note">{total ? `חיפשנו בכל הלקוחות: ${total === 1 ? "נמצא לקוח אחד" : `נמצאו ${total} לקוחות`}` : ""}</p>}
       <LeadsTable rows={data} canBulk={manager && can(u, "leads.bulk")} people={people} query={q} canCreate={can(u, "leads.create")} />
       {total > rows.length && (
         <div className="more-row">

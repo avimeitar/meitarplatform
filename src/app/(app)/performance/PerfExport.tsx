@@ -19,7 +19,7 @@ export function PerfExport({ period, tiles, reps, sources, projects }: { period:
     const out: string[] = [];
     out.push(line(["ביצועים", period.title]), "");
     out.push(line(["סיכום", ""]));
-    out.push(line(["לידים חדשים", tiles.leads]));
+    out.push(line(["לקוחות חדשים", tiles.leads]));
     out.push(line(["פניות חוזרות", tiles.returning]));
     out.push(line(["רלוונטיים", pctText(tiles.relevantPct)]));
     out.push(line(["פגישות שנקבעו", tiles.set]));
@@ -27,13 +27,13 @@ export function PerfExport({ period, tiles, reps, sources, projects }: { period:
     out.push(line(["אחוז הגעה", pctText(tiles.showUpPct)]));
     out.push(line(["עסקאות", tiles.deals]));
     out.push(line(["זמן תגובה, חציון בדקות", tiles.responseMin ?? ""]), "");
-    out.push(line(["נציג", "לידים ששויכו", "לא טופלו", "שיחות", "עם מענה", "זמן תגובה, חציון בדקות", "פגישות שנקבעו", "התקיימו", "בוטלו", "לא עודכנו", "אחוז הגעה", "עסקאות", "שעות עבודה"]));
+    out.push(line(["נציג", "לקוחות ששויכו", "לא טופלו", "שיחות", "עם מענה", "זמן תגובה, חציון בדקות", "פגישות שנקבעו", "התקיימו", "בוטלו", "לא עודכנו", "אחוז הגעה", "עסקאות", "שעות עבודה"]));
     for (const r of reps) out.push(line([r.name, r.received, r.untouched, r.calls, r.answered, r.responseMin ?? "", r.set, r.held, r.canceled, r.unmarked, pctText(r.showUpPct), r.deals, hours(r.minutes)]));
     for (const [title, rows] of [
       ["מקור הגעה", sources],
       ["פרויקט", projects],
     ] as const) {
-      out.push("", line([title, "לידים", "רלוונטיים", "לא רלוונטיים", "אחוז רלוונטיים", "נקבעה פגישה", "התקיימה פגישה", "עסקאות", "לא נוצר קשר", "עוד לא טופלו", "סיבת נשירה עיקרית"]));
+      out.push("", line([title, "לקוחות", "רלוונטיים", "לא רלוונטיים", "אחוז רלוונטיים", "נקבעה פגישה", "התקיימה פגישה", "עסקאות", "לא נוצר קשר", "עוד לא טופלו", "סיבת נשירה עיקרית"]));
       for (const r of rows) out.push(line([r.label, r.leads, r.relevant, r.junk, pctText(ratio(r.relevant, r.relevant + r.junk)), r.met, r.held, r.won, r.unreached, r.untreated, r.topReason ?? ""]));
     }
     const url = URL.createObjectURL(new Blob(["﻿" + out.join("\r\n")], { type: "text/csv;charset=utf-8" }));

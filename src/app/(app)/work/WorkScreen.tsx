@@ -34,14 +34,14 @@ export function WorkScreen({ rows }: { rows: QueueRow[] }) {
         <div className="page-head">
           <div>
             <h1>תור שיחות</h1>
-            <p className="sub">המערכת מסדרת לך את הלידים לפי מה שהכי דחוף. מטפלים בליד אחד בכל פעם.</p>
+            <p className="sub">המערכת מסדרת לך את הלקוחות לפי מה שהכי דחוף. מטפלים בלקוח אחד בכל פעם.</p>
           </div>
         </div>
         <div className="wcard wdone">
           <p className="big">0</p>
-          <h2>אין לידים שמחכים לך עכשיו</h2>
+          <h2>אין לקוחות שמחכים לך עכשיו</h2>
           <p className="sub" style={{ justifyContent: "center" }}>
-            כשייכנס ליד חדש או שיגיע זמן לחזור למישהו, הוא יופיע כאן.
+            כשייכנס לקוח חדש או שיגיע זמן לחזור למישהו, הוא יופיע כאן.
           </p>
         </div>
       </section>
@@ -54,7 +54,7 @@ export function WorkScreen({ rows }: { rows: QueueRow[] }) {
           <p className="big">{handled}</p>
           <h2>סיימת את התור. כל הכבוד!</h2>
           <p className="sub" style={{ justifyContent: "center" }}>
-            {nOf(handled, "ליד אחד טופל", "לידים טופלו")}.
+            {nOf(handled, "לקוח אחד טופל", "לקוחות טופלו")}.
           </p>
           <div className="wacts">
             <Link className="bigbtn light" href="/dashboard">
@@ -72,7 +72,7 @@ export function WorkScreen({ rows }: { rows: QueueRow[] }) {
     <section className="work">
       <div className="work-top">
         <b>
-          ליד {i + 1} מתוך {n}
+          לקוח {i + 1} מתוך {n}
         </b>
         <Link className="link" href="/dashboard">
           יציאה מהתור
@@ -110,9 +110,9 @@ export function WorkScreen({ rows }: { rows: QueueRow[] }) {
       </div>
       <div className="work-foot">
         <button type="button" onClick={next}>
-          דילוג לליד הבא
+          דילוג ללקוח הבא
         </button>
-        <Link href={`/leads/${current.leadId}`}>כרטיס הליד המלא</Link>
+        <Link href={`/leads/${current.leadId}`}>כרטיס הלקוח המלא</Link>
       </div>
     </section>
   );

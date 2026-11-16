@@ -8,10 +8,10 @@ export default function NotFound() {
     <main className="state-page">
       <div className="panel state-panel">
         <h1>הדף לא נמצא</h1>
-        <p className="muted">יכול להיות שהליד נמחק, שהקישור לא שלם, או שאין לך גישה אליו.</p>
+        <p className="muted">יכול להיות שהלקוח נמחק, שהקישור לא שלם, או שאין לך גישה אליו.</p>
         <div className="row-end">
           <Link className="btn primary" href="/leads">
-            לרשימת הלידים
+            לרשימת הלקוחות
           </Link>
           <Link className="btn" href="/">
             למסך הראשי

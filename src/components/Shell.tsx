@@ -28,7 +28,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
     items: [
       { href: "/dashboard", label: "ראשי", icon: "home" },
       { href: "/work", label: "תור שיחות", icon: "phone", key: "work" },
-      { href: "/leads", label: "לידים", icon: "users", key: "leads" },
+      { href: "/leads", label: "לקוחות", icon: "users", key: "leads" },
       { href: "/meetings", label: "פגישות", icon: "cal", key: "meetings" },
       { href: "/tasks", label: "משימות", icon: "check", key: "tasks" },
       { href: "/hours", label: "שעות עבודה", icon: "clock", hours: true },
@@ -90,7 +90,7 @@ function ShellInner({ user, counts, projects, people, shift, lists, children }: 
   const active = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   function openNewLead(prefill?: string) {
-    drawer.open({ title: "ליד חדש", content: <NewLeadForm projects={projects} people={people} sources={lists.sources} canAssign={has("leads.assign")} me={user} prefill={prefill} /> });
+    drawer.open({ title: "לקוח חדש", content: <NewLeadForm projects={projects} people={people} sources={lists.sources} canAssign={has("leads.assign")} me={user} prefill={prefill} /> });
   }
 
   async function signOut() {
@@ -171,13 +171,13 @@ function ShellInner({ user, counts, projects, people, shift, lists, children }: 
           }}
         >
           <Icon name="search" />
-          <input type="search" placeholder="חיפוש לפי שם או טלפון" aria-label="חיפוש לידים" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input type="search" placeholder="חיפוש לפי שם או טלפון" aria-label="חיפוש לקוחות" value={q} onChange={(e) => setQ(e.target.value)} />
         </form>
         <ShiftButton info={shift} />
         {has("leads.create") && (
           <button type="button" className="btn primary new-lead" onClick={() => openNewLead()}>
             <Icon name="plus" />
-            ליד חדש
+            לקוח חדש
           </button>
         )}
       </header>
@@ -190,7 +190,7 @@ function ShellInner({ user, counts, projects, people, shift, lists, children }: 
       <nav className="tabbar" aria-label="ניווט מהיר">
         {[
           { href: "/dashboard", label: "ראשי", icon: "home" as IconName },
-          { href: "/leads", label: "לידים", icon: "users" as IconName },
+          { href: "/leads", label: "לקוחות", icon: "users" as IconName },
           { href: "/work", label: "תור שיחות", icon: "phone" as IconName },
           { href: "/meetings", label: "פגישות", icon: "cal" as IconName },
         ].map((t) => (

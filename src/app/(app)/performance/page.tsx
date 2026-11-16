@@ -36,7 +36,7 @@ function Kpis({ t, prev }: { t: Tiles; prev: Tiles }) {
   return (
     <div className="kpis perf-kpis">
       <div className="kpi">
-        <span>לידים חדשים</span>
+        <span>לקוחות חדשים</span>
         <b>{t.leads}</b>
         <Delta cur={t.leads} prev={prev.leads} kind="count" />
         <small>{t.returning ? `ועוד ${t.returning} פניות חוזרות` : "בלי פניות חוזרות"}</small>
@@ -45,7 +45,7 @@ function Kpis({ t, prev }: { t: Tiles; prev: Tiles }) {
         <span>רלוונטיים</span>
         <b>{pctText(t.relevantPct)}</b>
         <Delta cur={t.relevantPct} prev={prev.relevantPct} kind="pct" />
-        <small>{t.judged ? `${t.relevant} מתוך ${t.judged} שנבדקו` : "עוד אין לידים שנבדקו"}</small>
+        <small>{t.judged ? `${t.relevant} מתוך ${t.judged} שנבדקו` : "עוד אין לקוחות שנבדקו"}</small>
       </div>
       <div className="kpi">
         <span>פגישות שנקבעו</span>
@@ -78,7 +78,7 @@ function Kpis({ t, prev }: { t: Tiles; prev: Tiles }) {
   );
 }
 
-const FUNNEL = ["לידים", "רלוונטיים", "נקבעה פגישה", "התקיימה פגישה", "נחתמה עסקה"];
+const FUNNEL = ["לקוחות", "רלוונטיים", "נקבעה פגישה", "התקיימה פגישה", "נחתמה עסקה"];
 
 export default async function PerformancePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requirePageUser("reports.view");
@@ -125,7 +125,7 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
       <div className="page-head">
         <div>
           <h1>ביצועים</h1>
-          <p className="sub">לידים, פגישות ועסקאות לפי נציג, מקור הגעה ופרויקט. נציגים לא רואים את המסך הזה.</p>
+          <p className="sub">לקוחות, פגישות ועסקאות לפי נציג, מקור הגעה ופרויקט. נציגים לא רואים את המסך הזה.</p>
         </div>
         <div className="head-actions">
           <PerfExport period={{ title: period.title, from: period.from, to: period.to }} tiles={r.tiles} reps={r.reps} sources={r.sources} projects={r.projects} />
@@ -148,9 +148,9 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
 
         <div className="panel funnel perf-funnel">
           <div className="panel-head">
-            <h2>הלידים שנכנסו בתקופה: מה קרה איתם עד היום</h2>
+            <h2>הלקוחות שנכנסו בתקופה: מה קרה איתם עד היום</h2>
           </div>
-          <ol className="metro big" aria-label="מליד לעסקה">
+          <ol className="metro big" aria-label="מלקוח לעסקה">
             {r.funnel.map((n, i) => (
               <li key={FUNNEL[i]}>
                 <b className="n">{n}</b>
@@ -160,7 +160,7 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
               </li>
             ))}
           </ol>
-          <ul className="fates" aria-label="מצב הלידים שנכנסו">
+          <ul className="fates" aria-label="מצב הלקוחות שנכנסו">
             <li>
               <b className="num">{r.mix.relevant}</b> רלוונטיים
               {r.mix.dropped ? <small>מהם {r.mix.dropped} ירדו מהפרק</small> : null}
@@ -189,10 +189,10 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
         <div className="grid-2 perf-charts">
           <div className="panel">
             <div className="panel-head">
-              <h2>לידים שנכנסו</h2>
+              <h2>לקוחות שנכנסו</h2>
               <span className="muted">{period.bucket === "day" ? "בכל יום" : period.bucket === "week" ? "בכל שבוע" : "בכל חודש"}</span>
             </div>
-            <Columns label="לידים שנכנסו" buckets={r.buckets} series={[{ key: "leads", label: "לידים", tone: "c1" }]} />
+            <Columns label="לקוחות שנכנסו" buckets={r.buckets} series={[{ key: "leads", label: "לקוחות", tone: "c1" }]} />
           </div>
           <div className="panel">
             <div className="panel-head">
@@ -220,14 +220,14 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
         <div className="panel perf-table" id="sources">
           <div className="panel-head">
             <h2>לפי מקור הגעה</h2>
-            <span className="muted">הלידים שנכנסו בתקופה</span>
+            <span className="muted">הלקוחות שנכנסו בתקופה</span>
           </div>
           <MixTable rows={r.sources} first="מקור" link={(row) => leads({ source: row.key })} filter={(row) => here({ source: row.key })} />
         </div>
         <div className="panel perf-table" id="projects">
           <div className="panel-head">
             <h2>לפי פרויקט</h2>
-            <span className="muted">הלידים שנכנסו בתקופה</span>
+            <span className="muted">הלקוחות שנכנסו בתקופה</span>
           </div>
           <MixTable rows={r.projects} first="פרויקט" link={(row) => (row.key ? leads({ project: row.key }) : null)} filter={(row) => (row.key ? here({ project: row.key }) : null)} />
         </div>
@@ -235,12 +235,12 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
         <details className="perf-how">
           <summary>איך סופרים</summary>
           <dl>
-            <dt>לידים חדשים</dt>
-            <dd>ליד שנכנס בתקופה בפעם הראשונה. ליד קיים שפנה שוב נספר בנפרד, כ״פנייה חוזרת״.</dd>
+            <dt>לקוחות חדשים</dt>
+            <dd>לקוח שנכנס בתקופה בפעם הראשונה. לקוח קיים שפנה שוב נספר בנפרד, כ״פנייה חוזרת״.</dd>
             <dt>רלוונטיים</dt>
-            <dd>מתוך הלידים שנבדקו: כל מי שדיברו איתו (שיחה שנענתה, פגישה, או סטטוס שמגיעים אליו רק אחרי שיחה) ולא התברר כלא רלוונטי. גם מי שירד מהפרק בהמשך (אין עניין, אין תקציב, קנה במקום אחר) נספר כרלוונטי.</dd>
+            <dd>מתוך הלקוחות שנבדקו: כל מי שדיברו איתו (שיחה שנענתה, פגישה, או סטטוס שמגיעים אליו רק אחרי שיחה) ולא התברר כלא רלוונטי. גם מי שירד מהפרק בהמשך (אין עניין, אין תקציב, קנה במקום אחר) נספר כרלוונטי.</dd>
             <dt>לא רלוונטיים</dt>
-            <dd>ליד שסומן ״לא רלוונטי״ בגלל הכחשת פנייה או מספר לא תקין.</dd>
+            <dd>לקוח שסומן ״לא רלוונטי״ בגלל הכחשת פנייה או מספר לא תקין.</dd>
             <dt>לא נוצר קשר, עוד לא טופלו</dt>
             <dd>לא נוצר קשר: התקשרו או כתבו, ועוד לא היה מענה. עוד לא טופלו: אף אחד עוד לא התקשר ולא כתב. שניהם לא נכנסים לאחוז הרלוונטיים.</dd>
             <dt>פגישות שנקבעו</dt>
@@ -248,9 +248,9 @@ export default async function PerformancePage({ searchParams }: { searchParams: 
             <dt>אחוז הגעה</dt>
             <dd>מתוך הפגישות שמועדן היה בתקופה: כמה התקיימו, מתוך אלה שהתקיימו או בוטלו. פגישה שעוד לא עודכנה לא נספרת עד שמעדכנים אותה.</dd>
             <dt>עסקאות</dt>
-            <dd>לידים שעברו ל״נחתמה עסקה״ בתקופה. בטבלת הנציגים הם נספרים לפי השיוך של הליד.</dd>
+            <dd>לקוחות שעברו ל״נחתמה עסקה״ בתקופה. בטבלת הנציגים הם נספרים לפי השיוך של הלקוח.</dd>
             <dt>זמן תגובה</dt>
-            <dd>הזמן מהכניסה של הליד (בטבלת הנציגים: מהרגע שהליד שויך) ועד השיחה או ההודעה הראשונה. נספרות רק שעות העבודה, א׳ עד ה׳ בין 8:00 ל-20:00. חציון: חצי מהלידים קיבלו מענה מהר יותר.</dd>
+            <dd>הזמן מהכניסה של הלקוח (בטבלת הנציגים: מהרגע שהלקוח שויך) ועד השיחה או ההודעה הראשונה. נספרות רק שעות העבודה, א׳ עד ה׳ בין 8:00 ל-20:00. חציון: חצי מהלקוחות קיבלו מענה מהר יותר.</dd>
             <dt>שעות עבודה</dt>
             <dd>מהמשמרות שנחתמו במסך שעות עבודה.</dd>
           </dl>
@@ -269,7 +269,7 @@ function RepTable({ rows, here, leads, active }: { rows: RepRow[]; here: (x: Rec
         <thead>
           <tr>
             <th scope="col">נציג</th>
-            <th scope="col" className="num">לידים ששויכו</th>
+            <th scope="col" className="num">לקוחות ששויכו</th>
             <th scope="col" className="num">שיחות</th>
             <th scope="col" className="num">זמן תגובה</th>
             <th scope="col" className="num">פגישות שנקבעו</th>
@@ -287,7 +287,7 @@ function RepTable({ rows, here, leads, active }: { rows: RepRow[]; here: (x: Rec
                   <Owner id={x.id} name={x.name} inactive={x.inactive} />
                 </Link>
               </td>
-              <td className="num" data-label="לידים ששויכו">
+              <td className="num" data-label="לקוחות ששויכו">
                 {x.received ? <Link href={leads({ owner: x.id })}>{x.received}</Link> : 0}
                 {x.untouched ? <small className="warn-text">{x.untouched} לא טופלו</small> : null}
               </td>
@@ -323,14 +323,14 @@ function RepTable({ rows, here, leads, active }: { rows: RepRow[]; here: (x: Rec
 }
 
 function MixTable({ rows, first, link, filter }: { rows: MixRow[]; first: string; link: (r: MixRow) => string | null; filter: (r: MixRow) => string | null }) {
-  if (!rows.length) return <p className="empty">לא נכנסו לידים בתקופה.</p>;
+  if (!rows.length) return <p className="empty">לא נכנסו לקוחות בתקופה.</p>;
   return (
     <div className="rp-scroll">
       <table className="mini rp-break perf-mix">
         <thead>
           <tr>
             <th scope="col">{first}</th>
-            <th scope="col" className="num">לידים</th>
+            <th scope="col" className="num">לקוחות</th>
             <th scope="col" className="num">רלוונטיים</th>
             <th scope="col" className="num">נקבעה פגישה</th>
             <th scope="col" className="num">התקיימה פגישה</th>
@@ -347,7 +347,7 @@ function MixTable({ rows, first, link, filter }: { rows: MixRow[]; first: string
             return (
               <tr key={x.key || "none"}>
                 <td className="rp-name">{narrow ? <Link className="lk" href={narrow}>{x.label}</Link> : <span className="muted">{x.label}</span>}</td>
-                <td className="num" data-label="לידים">
+                <td className="num" data-label="לקוחות">
                   {href ? <Link href={href}>{x.leads}</Link> : x.leads}
                 </td>
                 <td className="num" data-label="רלוונטיים">

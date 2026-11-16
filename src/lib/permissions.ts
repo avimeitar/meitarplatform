@@ -1,13 +1,13 @@
 // Every permission the system checks, with the wording managers see on the permissions screen.
 export const PERMISSIONS = {
-  "leads.view_all": { group: "לידים", label: "לראות את כל הלידים, גם של סוכנים אחרים" },
-  "leads.create": { group: "לידים", label: "להוסיף לידים" },
-  "leads.edit": { group: "לידים", label: "לעדכן לידים: פרטים, שיחות, סטטוס ופגישות" },
-  "leads.assign": { group: "לידים", label: "לשייך לידים לסוכנים" },
-  "leads.bulk": { group: "לידים", label: "פעולות על כמה לידים יחד" },
-  "leads.delete": { group: "לידים", label: "למחוק לידים" },
-  "leads.export": { group: "לידים", label: "לייצא לידים לקובץ" },
-  "leads.import": { group: "לידים", label: "לייבא לידים מקובץ, למשל מפיירברי" },
+  "leads.view_all": { group: "לקוחות", label: "לראות את כל הלקוחות, גם של סוכנים אחרים" },
+  "leads.create": { group: "לקוחות", label: "להוסיף לקוחות" },
+  "leads.edit": { group: "לקוחות", label: "לעדכן לקוחות: פרטים, שיחות, סטטוס ופגישות" },
+  "leads.assign": { group: "לקוחות", label: "לשייך לקוחות לסוכנים" },
+  "leads.bulk": { group: "לקוחות", label: "פעולות על כמה לקוחות יחד" },
+  "leads.delete": { group: "לקוחות", label: "למחוק לקוחות" },
+  "leads.export": { group: "לקוחות", label: "לייצא לקוחות לקובץ" },
+  "leads.import": { group: "לקוחות", label: "לייבא לקוחות מקובץ, למשל מפיירברי" },
   "meetings.manage_all": { group: "פגישות ומשימות", label: "לעדכן פגישות של אנשים אחרים" },
   "tasks.assign": { group: "פגישות ומשימות", label: "לתת משימות לאנשים אחרים" },
   "reports.view": { group: "דוחות", label: "לראות את דשבורד המנהל, הביצועים, הפרויקטים והעסקאות" },
@@ -38,7 +38,7 @@ export const BUILT_IN_ROLES: Record<BuiltInRoleKey, { name: string; description:
   },
   manager: {
     name: "מנהל מכירות",
-    description: "רואה הכול ומחלק לידים, בלי ניהול משתמשים והגדרות",
+    description: "רואה הכול ומחלק לקוחות, בלי ניהול משתמשים והגדרות",
     locked: false,
     permissions: [
       "leads.view_all",
@@ -57,7 +57,7 @@ export const BUILT_IN_ROLES: Record<BuiltInRoleKey, { name: string; description:
   },
   agent: {
     name: "סוכן",
-    description: "עובד עם לידים, פגישות ומשימות",
+    description: "עובד עם לקוחות, פגישות ומשימות",
     locked: false,
     permissions: ["leads.view_all", "leads.create", "leads.edit"],
   },

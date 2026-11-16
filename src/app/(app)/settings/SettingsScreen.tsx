@@ -36,7 +36,7 @@ export function SettingsScreen({ lists, people, host }: { lists: Lists; people: 
 
       <ListEditor
         title="מקורות הגעה"
-        hint="המקורות שאפשר לבחור כשמוסיפים ליד ידנית. לידים מטפסים וקמפיינים מגיעים עם המקור שלהם."
+        hint="המקורות שאפשר לבחור כשמוסיפים לקוח ידנית. לקוחות מטפסים וקמפיינים מגיעים עם המקור שלהם."
         initial={lists.sources}
         onSave={(items) => runner(saveSourcesAction(items))}
       />
@@ -157,14 +157,14 @@ function ReasonsEditor({ initial, onSave }: { initial: Reason[]; onSave: (items:
   return (
     <div className="panel">
       <h2>סיבות ל״לא רלוונטי״</h2>
-      <p className="muted">הסיבות שבוחרים כשליד לא רלוונטי. סיבה שמסומנת ״לא היה ליד אמיתי״ (למשל מספר לא תקין) לא נספרת במסך הביצועים כליד רלוונטי.</p>
+      <p className="muted">הסיבות שבוחרים כשלקוח לא רלוונטי. סיבה שמסומנת ״לא היה לקוח אמיתי״ (למשל מספר לא תקין) לא נספרת במסך הביצועים כלקוח רלוונטי.</p>
       <ul className="set-list">
         {items.map((it, i) => (
           <li key={it.label}>
             <span>{it.label}</span>
             <label className="set-junk">
               <input type="checkbox" checked={it.junk} onChange={(e) => setItems(items.map((x) => (x.label === it.label ? { ...x, junk: e.target.checked } : x)))} />
-              לא היה ליד אמיתי
+              לא היה לקוח אמיתי
             </label>
             <Order i={i} n={items.length} label={it.label} onMove={(by) => setItems(move(items, i, by))} />
             <button type="button" className="ib" aria-label={`הסרת ${it.label}`} disabled={items.length === 1} onClick={() => setItems(items.filter((x) => x.label !== it.label))}>

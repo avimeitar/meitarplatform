@@ -35,7 +35,7 @@ export function NewLeadForm({ projects, people, sources, canAssign, me, prefill 
     setBusy(false);
     if (!r.ok) return setErr({ field: r.field, text: r.error });
     drawer.close();
-    toast(r.message ?? "הליד נשמר", { undoId: r.undoId });
+    toast(r.message ?? "הלקוח נשמר", { undoId: r.undoId });
     if (r.data?.leadId) router.push(`/leads/${r.data.leadId}`);
   }
 
@@ -114,7 +114,7 @@ export function NewLeadForm({ projects, people, sources, canAssign, me, prefill 
           ביטול
         </button>
         <button type="submit" className="btn primary" disabled={busy}>
-          {busy ? "שומרים…" : "שמירת ליד"}
+          {busy ? "שומרים…" : "שמירת לקוח"}
         </button>
       </footer>
     </form>

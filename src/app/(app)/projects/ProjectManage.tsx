@@ -80,7 +80,7 @@ function ProjectForm({ project }: { project?: ProjectView }) {
       <label className="fld">
         <span className="req">שם קצר</span>
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} autoComplete="off" aria-invalid={err?.field === "name"} />
-        <small>כך הפרויקט מופיע ברשימות ובבחירת פרויקט לליד. למשל: מטרופארק</small>
+        <small>כך הפרויקט מופיע ברשימות ובבחירת פרויקט ללקוח. למשל: מטרופארק</small>
         {fe("name")}
       </label>
       <label className="fld">
@@ -136,7 +136,7 @@ function ProjectManage({ project }: { project: ProjectView }) {
           </span>
           <span>
             <b>להשבית את הפרויקט</b>
-            <small>לא יופיע בבחירת פרויקט לליד חדש ובדוח הפרויקטים. הלידים והעסקאות שלו נשמרים, ואפשר להחזיר אותו בכל רגע</small>
+            <small>לא יופיע בבחירת פרויקט ללקוח חדש ובדוח הפרויקטים. הלקוחות והעסקאות שלו נשמרים, ואפשר להחזיר אותו בכל רגע</small>
           </span>
         </button>
       </div>

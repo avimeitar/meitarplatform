@@ -7,7 +7,7 @@ import { requirePageUser } from "@/lib/session";
 export const metadata = { title: "יומן פעולות" };
 const PAGE = 100;
 
-const GROUPS: Record<string, string> = { auth: "כניסות", user: "משתמשים", role: "הרשאות", lead: "לידים", apikey: "קליטת לידים", project: "פרויקטים" };
+const GROUPS: Record<string, string> = { auth: "כניסות", user: "משתמשים", role: "הרשאות", lead: "לקוחות", apikey: "קליטת לידים", project: "פרויקטים" };
 
 function describe(meta: unknown): string {
   if (!meta || typeof meta !== "object") return "";
@@ -17,8 +17,8 @@ function describe(meta: unknown): string {
   if (m.from && m.to) parts.push(`מ״${m.from}״ ל״${m.to}״`);
   else if (m.to) parts.push(`ל${m.to}`);
   if (m.role) parts.push(String(m.role));
-  if (typeof m.leads === "number") parts.push(`${m.leads} לידים הועברו`);
-  if (typeof m.count === "number") parts.push(`${m.count} לידים`);
+  if (typeof m.leads === "number") parts.push(`${m.leads} לקוחות הועברו`);
+  if (typeof m.count === "number") parts.push(`${m.count} לקוחות`);
   if (Array.isArray(m.added) && m.added.length) parts.push("נוסף: " + m.added.join(", "));
   if (Array.isArray(m.removed) && m.removed.length) parts.push("הוסר: " + m.removed.join(", "));
   if (m.smsSent === true) parts.push("נשלח ב-SMS");
@@ -41,7 +41,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
       <div className="page-head">
         <div>
           <h1>יומן פעולות</h1>
-          <p className="sub">מי נכנס, מי קיבל קוד, ומי שינה משתמשים, הרשאות ולידים. נשמר לפי דרישות אבטחת המידע.</p>
+          <p className="sub">מי נכנס, מי קיבל קוד, ומי שינה משתמשים, הרשאות ולקוחות. נשמר לפי דרישות אבטחת המידע.</p>
         </div>
       </div>
       <div className="toolbar">
