@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   apiKeyFromHeaders,
+  apiKeyFromRequest,
+  fieldsFromQuery,
   apiKeyMatches,
   cleanPayload,
   generateApiKey,
@@ -59,6 +61,20 @@ describe("API keys", () => {
     expect(apiKeyFromHeaders(h({ Authorization: "Basic dXNlcjpwYXNz", "x-api-key": "mk_e" }))).toBe("mk_e");
     expect(apiKeyFromHeaders(h({}))).toBeNull();
     expect(apiKeyFromHeaders(h({ Authorization: "Bearer " }))).toBeNull();
+  });
+
+  it("reads the key from the address when the headers have none (a supplier's personal link)", () => {
+    const u = (q: string) => new globalThis.URL(`${URL}${q}`);
+    expect(apiKeyFromRequest(new Headers(), u("?key=mk_a"))).toBe("mk_a");
+    expect(apiKeyFromRequest(new Headers(), u("?token=mk_b&phone=1"))).toBe("mk_b");
+    expect(apiKeyFromRequest(new Headers({ "X-Api-Key": "mk_c" }), u("?key=mk_other"))).toBe("mk_c");
+    expect(apiKeyFromRequest(new Headers(), u("?phone=1"))).toBeNull();
+  });
+
+  it("takes a lead's fields from the address, without the key", () => {
+    const f = fieldsFromQuery(new globalThis.URL(`${URL}?key=mk_a&name=${encodeURIComponent("דנה")}&phone=0501234567&API_KEY=x`));
+    expect(f).toEqual({ name: "דנה", phone: "0501234567" });
+    expect(mapped(f).lead.phone).toBe("+972501234567");
   });
 });
 

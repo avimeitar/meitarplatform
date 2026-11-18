@@ -284,6 +284,42 @@ d("CRM rules on a real database", () => {
     expect(push.isPushEndpoint("http://fcm.googleapis.com/x")).toBe(false);
   });
 
+  it("a supplier's personal link: the key in the address, a lead by GET or POST, and a check that saves nothing", async () => {
+    const route = await import("@/app/api/v1/leads/route");
+    const { generateApiKey } = await import("@/lib/intake");
+    const g = generateApiKey();
+    await prisma.apiKey.create({ data: { name: "ספק בדיקה", prefix: g.prefix, hash: g.hash, source: "ספק בדיקה" } });
+    const link = `http://localhost/api/v1/leads?key=${g.key}`;
+    const before = await prisma.lead.count();
+    // the link alone, as when opened in a browser or previewed in WhatsApp: it works, and nothing is saved
+    const check = await route.GET(new Request(link));
+    expect(check.status).toBe(200);
+    expect((await check.json()).check).toBe(true);
+    expect((await route.HEAD()).status).toBe(204);
+    expect(await prisma.lead.count()).toBe(before);
+    expect((await prisma.apiKey.findUniqueOrThrow({ where: { prefix: g.prefix } })).lastUsedAt).toBeNull();
+    // a lead in the address
+    const byGet = await route.GET(new Request(`${link}&name=${encodeURIComponent("דנה כהן")}&phone=050-000-0901`));
+    expect(byGet.status).toBe(201);
+    const got = await prisma.lead.findFirstOrThrow({ where: { phone: "+972500000901" }, include: { inquiries: true } });
+    expect(got.name).toBe("דנה כהן");
+    expect(got.source).toBe("ספק בדיקה");
+    // the key is not kept with what was sent
+    expect(JSON.stringify(got.inquiries[0]?.payload ?? {})).not.toContain(g.key);
+    // a post with the key in the address and the lead in the body
+    const byPost = await route.POST(new Request(link, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "רון לוי", phone: "0500000902" }) }));
+    expect(byPost.status).toBe(201);
+    // a post with nothing in the body and the fields in the address
+    const empty = await route.POST(new Request(`${link}&phone=0500000903`, { method: "POST" }));
+    expect(empty.status).toBe(201);
+    // the same phone again: added to the client that exists
+    expect((await route.GET(new Request(`${link}&phone=0500000901`))).status).toBe(200);
+    // a wrong key, or none
+    expect((await route.GET(new Request(`http://localhost/api/v1/leads?key=${g.key.slice(0, -2)}xx&phone=0500000904`))).status).toBe(401);
+    expect((await route.GET(new Request("http://localhost/api/v1/leads?phone=0500000904"))).status).toBe(401);
+    expect(await prisma.lead.count({ where: { phone: "+972500000904" } })).toBe(0);
+  });
+
   it("only the person who made a change can undo it", async () => {
     const { leadId } = await newLead("+972500000105");
     const { undoId } = await undo.withUndo(by.id, "note", (tx, rec) => crm.addActivity(tx, rec, leadId, { kind: "note", text: "x" }));

@@ -48,6 +48,26 @@ export function apiKeyFromHeaders(h: { get(name: string): string | null }): stri
   return h.get("x-api-key")?.trim() || null;
 }
 
+/** Names the key may have in the address, as in a supplier's personal link: /api/v1/leads?key=mk_... */
+export const KEY_PARAMS = ["key", "api_key", "apikey", "token"];
+
+/** The key from the headers, or else from the address. */
+export function apiKeyFromRequest(h: { get(name: string): string | null }, url: URL): string | null {
+  const fromHeaders = apiKeyFromHeaders(h);
+  if (fromHeaders) return fromHeaders;
+  for (const name of KEY_PARAMS) {
+    const v = url.searchParams.get(name)?.trim();
+    if (v) return v;
+  }
+  return null;
+}
+
+/** A lead's fields written in the address (?name=...&phone=...), for senders that can only call a link. The key is left out. */
+export function fieldsFromQuery(url: URL): Body {
+  const entries = [...url.searchParams.entries()].filter(([k]) => !KEY_PARAMS.includes(k.toLowerCase()));
+  return cleanPayload(fromEntries(entries)) as Body;
+}
+
 // ---------------------------------------------------------------- rate limit
 
 /** A sliding one-minute window per key, kept in memory. Each server instance counts on its own. */
@@ -81,7 +101,7 @@ export class RateLimiter {
 export const MAX_BODY_BYTES = 100 * 1024;
 
 export type Body = Record<string, unknown>;
-export type BodyResult = { ok: true; data: Body } | { ok: false; status: 400 | 413 | 415; error: string };
+export type BodyResult = { ok: true; data: Body } | { ok: false; status: 400 | 413 | 415; error: string; empty?: true };
 
 const HOW = 'Send JSON with "Content-Type: application/json", or a form with "Content-Type: application/x-www-form-urlencoded".';
 
@@ -112,7 +132,7 @@ export async function readLeadBody(req: Request, maxBytes = MAX_BODY_BYTES): Pro
   if (!json && !form && !unknownType) return { ok: false, status: 415, error: `Unsupported content type "${type}". ${HOW}` };
 
   const text = new TextDecoder().decode(bytes).trim();
-  if (!text) return { ok: false, status: 400, error: `The request body is empty. ${HOW}` };
+  if (!text) return { ok: false, status: 400, error: `The request body is empty. ${HOW}`, empty: true };
   if (json || (unknownType && /^[[{]/.test(text))) return parseJson(text);
   if (form || text.includes("=")) return done(fromEntries(new URLSearchParams(text).entries()));
   return { ok: false, status: 400, error: `Could not read the request body. ${HOW}` };

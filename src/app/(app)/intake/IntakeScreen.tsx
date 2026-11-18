@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createApiKeyAction, revokeApiKeyAction, type NewApiKey } from "@/app/actions/intake";
 import { Icon } from "@/components/Icon";
+import { useShellData } from "@/components/ShellData";
 import { useDrawer, useToast } from "@/components/ui/Overlays";
 import { useRunner } from "@/components/ui/useRunner";
 
@@ -54,7 +55,7 @@ export function IntakeScreen({ keys, projects, fields, endpoint }: { keys: KeyRo
       <div className="page-head">
         <div>
           <h1>קליטת לידים</h1>
-          <p className="sub">לידים מהאתר, מדפי נחיתה, מספקי לידים ומפייסבוק ואינסטגרם (דרך Make או Zapier) נכנסים ישר למערכת. לכל מקור יש מפתח משלו.</p>
+          <p className="sub">לידים מהאתר, מדפי נחיתה, מספקי לידים ומפייסבוק ואינסטגרם (דרך Make או Zapier) נכנסים ישר למערכת. לכל מקור יש מפתח משלו, וקישור אישי שאפשר לשלוח לספק בוואטסאפ או במייל.</p>
         </div>
         <div className="head-actions">
           <button type="button" className="btn primary" onClick={openNew}>
@@ -82,6 +83,8 @@ export function IntakeScreen({ keys, projects, fields, endpoint }: { keys: KeyRo
         </div>
       )}
 
+      {active.length > 0 && <p className="muted ik-note">הקישור האישי מוצג פעם אחת, כשיוצרים את המפתח. לספק שצריך קישור חדש יוצרים מפתח חדש ושולחים לו, ואחרי שעבר אליו מבטלים את הישן.</p>}
+
       {revoked.length > 0 && (
         <>
           <h2 className="sec-h">מפתחות שבוטלו</h2>
@@ -103,8 +106,12 @@ export function IntakeScreen({ keys, projects, fields, endpoint }: { keys: KeyRo
           </div>
         </div>
         <p>
-          שולחים בקשת <code className="ik-inline">POST</code> עם המפתח בכותרת <code className="ik-inline">Authorization: Bearer &lt;key&gt;</code> או בכותרת{" "}
-          <code className="ik-inline">X-Api-Key</code>. הגוף הוא JSON או טופס רגיל, וכל בקשה היא ליד אחד.
+          שולחים בקשת <code className="ik-inline">POST</code> לקישור האישי (הכתובת ועוד <code className="ik-inline">?key=&lt;key&gt;</code>), או לכתובת עם המפתח בכותרת{" "}
+          <code className="ik-inline">Authorization: Bearer &lt;key&gt;</code> או <code className="ik-inline">X-Api-Key</code>. הגוף הוא JSON או טופס רגיל, וכל בקשה היא ליד אחד.
+        </p>
+        <p>
+          מערכת שיודעת רק לפתוח קישור שולחת <code className="ik-inline">GET</code> לקישור האישי עם הפרטים בסופו, למשל <code className="ik-inline">&amp;name=...&amp;phone=...</code>. הקישור
+          לבד, בלי פרטים, רק בודק שהחיבור תקין, ולא נוצר ליד.
         </p>
         <div className="ik-fields-wrap">
           <table className="data ik-fields">
@@ -151,8 +158,8 @@ export function IntakeScreen({ keys, projects, fields, endpoint }: { keys: KeyRo
         </ul>
         <h3>פייסבוק ואינסטגרם דרך Make או Zapier</h3>
         <p>
-          ב-Make: מודול <span className="ltr">HTTP (Make a request)</span>. ב-Zapier: <span className="ltr">Webhooks by Zapier (POST)</span>. ממלאים את הכתובת, מוסיפים כותרת Authorization
-          עם המילה Bearer והמפתח, ובגוף ממפים את שדות הליד מהטופס.
+          ב-Make: מודול <span className="ltr">HTTP (Make a request)</span>. ב-Zapier: <span className="ltr">Webhooks by Zapier (POST)</span>. ממלאים את הקישור האישי (המפתח כבר בתוכו), ובגוף
+          ממפים את שדות הליד מהטופס.
         </p>
       </div>
     </section>
@@ -316,58 +323,118 @@ function KeyForm({ projects, endpoint }: { projects: ProjectOption[]; endpoint: 
 /** Wraps text in single quotes for a shell command. */
 const shellQuote = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
 
+/** The message a supplier gets: their personal link, how to connect it, and how to check it. */
+function supplierMessage(info: NewApiKey, link: string, sender: string): string {
+  return [
+    "שלום,",
+    "זה הקישור האישי שלכם לשליחת לידים לקבוצת מיתר:",
+    link,
+    "",
+    "איך מחברים:",
+    "1. במערכת שלכם (טופס, דף נחיתה, Make, Zapier וכדומה) יש שדה בשם Webhook או ״כתובת לשליחת לידים״. מדביקים בו את הקישור.",
+    "2. כל ליד נשלח בבקשת POST, ב-JSON או כטופס רגיל, עם השדות:",
+    // Hebrew first on each line, so a right-to-left screen shows the field names in order
+    "• טלפון (חובה): phone",
+    "• שם מלא: name",
+    "• אימייל: email",
+    ...(info.projectName ? [] : ["• שם הפרויקט: project"]),
+    "3. מערכת שיודעת רק לפתוח קישור יכולה להוסיף את הפרטים לסוף הקישור, כך:",
+    "&name=...&phone=...",
+    "",
+    "לבדיקה: פותחים את הקישור בדפדפן. אם מופיע This link works, החיבור תקין.",
+    "תשובה 201 אומרת שהליד נשמר. תשובה 200 אומרת שהטלפון כבר קיים, והפנייה נוספה אליו.",
+    "",
+    "תודה,",
+    sender ? `${sender}, קבוצת מיתר` : "קבוצת מיתר",
+  ].join("\n");
+}
+
 function KeyReady({ info, endpoint, sampleProject }: { info: NewApiKey; endpoint: string; sampleProject: string | null }) {
   const drawer = useDrawer();
   const copy = useCopy();
+  const { meName } = useShellData();
   const top = useRef<HTMLDivElement>(null);
   // the drawer keeps the scroll position of the form it replaces: start at the warning
   useEffect(() => {
     top.current?.closest(".drawer-form")?.scrollTo(0, 0);
   }, []);
+  const link = `${endpoint}?key=${info.key}`;
+  const message = supplierMessage(info, link, meName);
   const example: Record<string, unknown> = { name: "ישראל ישראלי", phone: "050-1234567", email: "israel@example.com" };
   if (!info.projectName && sampleProject) example.project = sampleProject;
   example.campaign = "summer-campaign";
   example.page = "https://meitargroup.co.il/";
   example.consent = true;
   const json = JSON.stringify(example, null, 2);
-  const curl = [`curl -X POST "${endpoint}"`, `  -H "Authorization: Bearer ${info.key}"`, `  -H "Content-Type: application/json"`, `  -d ${shellQuote(JSON.stringify(example))}`].join(" \\\n");
+  const curl = [`curl -X POST ${shellQuote(link)}`, `  -H "Content-Type: application/json"`, `  -d ${shellQuote(JSON.stringify(example))}`].join(" \\\n");
+  const byLink = `${link}&name=${encodeURIComponent("ישראל ישראלי")}&phone=050-1234567`;
 
   return (
     <div className="sheet-body ik-ready" ref={top}>
       <p className="warn-line">
         <Icon name="alert" />
-        זו הפעם היחידה שהמפתח מוצג. כדאי להעתיק אותו עכשיו ולשמור במקום בטוח.
+        זו הפעם היחידה שהקישור מוצג. כדאי לשלוח אותו לספק עכשיו, או להעתיק ולשמור במקום בטוח.
       </p>
       <div className="ik-block">
-        <span className="ik-lbl">המפתח של ״{info.name}״</span>
-        <code className="ik-code ik-secret">{info.key}</code>
-        <button type="button" className="bigbtn light" onClick={() => copy(info.key, "המפתח הועתק")}>
-          <Icon name="lock" />
-          להעתיק את המפתח
+        <span className="ik-lbl">הקישור האישי של ״{info.name}״</span>
+        <code className="ik-code ik-secret">{link}</code>
+        <button type="button" className="bigbtn light" onClick={() => copy(link, "הקישור הועתק")}>
+          <Icon name="link" />
+          להעתיק את הקישור
         </button>
+        <small className="muted">המפתח כבר בתוך הקישור. מי שיש לו את הקישור יכול לשלוח לידים, ורק את זה. אפשר לבטל אותו בכל רגע.</small>
       </div>
       <div className="ik-block">
-        <span className="ik-lbl">הכתובת לשליחת לידים</span>
-        <code className="ik-code">{endpoint}</code>
-        <button type="button" className="btn" onClick={() => copy(endpoint, "הכתובת הועתקה")}>
-          להעתיק את הכתובת
-        </button>
+        <span className="ik-lbl">שליחה לספק</span>
+        <p className="muted">הודעה מוכנה עם הקישור והסבר קצר איך מחברים ואיך בודקים.</p>
+        <div className="ik-send">
+          <a className="btn wa" href={`https://wa.me/?text=${encodeURIComponent(message)}`} target="_blank" rel="noopener noreferrer">
+            <Icon name="wa" />
+            בוואטסאפ
+          </a>
+          <a className="btn" href={`mailto:?subject=${encodeURIComponent("קישור לשליחת לידים לקבוצת מיתר")}&body=${encodeURIComponent(message)}`}>
+            <Icon name="mail" />
+            במייל
+          </a>
+          <button type="button" className="btn ghost" onClick={() => copy(message, "ההודעה הועתקה")}>
+            להעתיק את ההודעה
+          </button>
+        </div>
+        <details className="ik-more">
+          <summary>מה הספק יקבל</summary>
+          <p className="ik-msg" dir="auto">{message}</p>
+        </details>
       </div>
-      <div className="ik-block">
-        <span className="ik-lbl">דוגמה מוכנה לבדיקה (curl)</span>
-        <pre className="ik-code">{curl}</pre>
-        <button type="button" className="btn" onClick={() => copy(curl, "הדוגמה הועתקה")}>
-          להעתיק את הדוגמה
-        </button>
-        <small className="muted">הרצה של הדוגמה יוצרת ליד בדיקה אמיתי במערכת.</small>
-      </div>
-      <div className="ik-block">
-        <span className="ik-lbl">גוף הבקשה (JSON)</span>
-        <pre className="ik-code">{json}</pre>
-        <button type="button" className="btn" onClick={() => copy(json, "גוף הבקשה הועתק")}>
-          להעתיק את גוף הבקשה
-        </button>
-      </div>
+      <details className="ik-more">
+        <summary>פרטים טכניים, למתכנתים</summary>
+        <div className="ik-block">
+          <span className="ik-lbl">המפתח לבד, לשליחה בכותרת Authorization: Bearer או X-Api-Key</span>
+          <code className="ik-code ik-secret">{info.key}</code>
+          <button type="button" className="btn" onClick={() => copy(info.key, "המפתח הועתק")}>
+            להעתיק את המפתח
+          </button>
+        </div>
+        <div className="ik-block">
+          <span className="ik-lbl">דוגמה מוכנה לבדיקה (curl)</span>
+          <pre className="ik-code">{curl}</pre>
+          <button type="button" className="btn" onClick={() => copy(curl, "הדוגמה הועתקה")}>
+            להעתיק את הדוגמה
+          </button>
+          <small className="muted">הרצה של הדוגמה יוצרת ליד בדיקה אמיתי במערכת.</small>
+        </div>
+        <div className="ik-block">
+          <span className="ik-lbl">ליד בקישור אחד (GET), למערכות שיודעות רק לפתוח קישור</span>
+          <code className="ik-code">{byLink}</code>
+          <small className="muted">פתיחה של הקישור הזה יוצרת ליד בדיקה אמיתי במערכת.</small>
+        </div>
+        <div className="ik-block">
+          <span className="ik-lbl">גוף הבקשה (JSON)</span>
+          <pre className="ik-code">{json}</pre>
+          <button type="button" className="btn" onClick={() => copy(json, "גוף הבקשה הועתק")}>
+            להעתיק את גוף הבקשה
+          </button>
+        </div>
+      </details>
       <p className="muted">
         לידים שלא שולחים מקור ייכנסו עם המקור ״{info.source}״{info.projectName ? <>, ולידים שלא שולחים פרויקט ייכנסו לפרויקט ״{info.projectName}״</> : null}.
       </p>

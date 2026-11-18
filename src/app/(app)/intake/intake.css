@@ -59,3 +59,12 @@ pre.ik-code{max-height:260px;overflow:auto}
   .ik-fields td:last-child{color:var(--ink-3);font-size:var(--fs-1)}
   .ik-codes li{display:flex;align-items:baseline}
 }
+/* sending the personal link to a supplier */
+.ik-send{display:flex;flex-wrap:wrap;gap:8px}
+.ik-more{border:1px solid var(--line-soft);border-radius:10px;padding:0 12px}
+.ik-more > summary{min-height:42px;display:flex;align-items:center;cursor:pointer;font-weight:500;color:var(--blue-ink)}
+.ik-more[open]{padding-bottom:12px}
+.ik-more[open] > .ik-block + .ik-block{margin-top:14px}
+.ik-msg{margin:0;padding:10px 12px;border-radius:10px;background:#F4F6FA;white-space:pre-wrap;line-height:1.55;font-size:var(--fs-1);overflow-wrap:anywhere}
+.ik-note{margin:10px 2px 0;font-size:var(--fs-1)}
+@media (max-width:760px){.ik-send > *{flex:1 1 140px;justify-content:center}}
