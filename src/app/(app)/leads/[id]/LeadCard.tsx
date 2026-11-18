@@ -8,7 +8,7 @@ import { Icon, type IconName } from "@/components/Icon";
 import { useLists } from "@/components/ShellData";
 import { MeetingStateSelect } from "@/components/crm/MeetingState";
 import { firstName, initials, StatusPill } from "@/components/crm/bits";
-import { readyMessages, useLeadSheets, waLink, type SheetLead } from "@/components/crm/Sheets";
+import { useLeadSheets, useMessages, waLink, type SheetLead } from "@/components/crm/Sheets";
 import { TaskList, type TaskItem } from "@/components/crm/TaskList";
 import { useToast } from "@/components/ui/Overlays";
 import { useRunner } from "@/components/ui/useRunner";
@@ -415,7 +415,7 @@ function Details({ lead, projects, people, perms }: { lead: LeadCardData; projec
 
 function WaComposer({ lead, onSent }: { lead: SheetLead; onSent: (text: string) => void }) {
   const [text, setText] = useState("");
-  const msgs = readyMessages(lead);
+  const msgs = useMessages().ready(lead);
   return (
     <div className="cpane">
       <p className="window">
@@ -428,9 +428,6 @@ function WaComposer({ lead, onSent }: { lead: SheetLead; onSent: (text: string) 
             {title}
           </button>
         ))}
-        <button type="button" className="tpl" onClick={() => setText(`היי ${firstName(lead.name)}, מאשרים את הפגישה? נשמח לראות אותך.`)}>
-          בקשת אישור הגעה
-        </button>
       </div>
       <textarea rows={3} placeholder={`כתבו הודעה ל${firstName(lead.name)}`} aria-label="הודעת וואטסאפ" value={text} onChange={(e) => setText(e.target.value)} />
       <div className="crow">
@@ -513,7 +510,7 @@ function TaskComposer({ leadId, people, canAssign, meId, defaultUser }: { leadId
         </label>
         <label className="fld">
           <span>שעה</span>
-          <input type="time" step={900} value={time} onChange={(e) => setTime(e.target.value)} />
+          <input type="time" step={60} value={time} onChange={(e) => setTime(e.target.value)} />
         </label>
       </div>
       {canAssign && (

@@ -209,10 +209,10 @@ function ShellInner({ user, counts, projects, people, shift, lists, children }: 
   );
 }
 
-export function Shell(props: { user: ShellUser; counts: NavCounts; projects: ProjectOption[]; people: PersonOption[]; shift: ShiftInfo; meetingHost: string | null; lists: ClientLists; children: ReactNode }) {
+export function Shell(props: { user: ShellUser; counts: NavCounts; projects: ProjectOption[]; people: PersonOption[]; shift: ShiftInfo; meetingHost: string | null; lists: ClientLists; appUrl: string; children: ReactNode }) {
   // above the overlays, so sheets opened in the drawer can read it too
   return (
-    <ShellDataProvider value={{ meId: props.user.id, people: props.people, meetingHost: props.meetingHost, lists: props.lists }}>
+    <ShellDataProvider value={{ meId: props.user.id, meName: props.user.firstName, appUrl: props.appUrl, people: props.people, meetingHost: props.meetingHost, lists: props.lists }}>
       <Overlays>
         <ShellInner {...props} />
       </Overlays>

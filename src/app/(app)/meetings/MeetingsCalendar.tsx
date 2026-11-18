@@ -124,7 +124,7 @@ export function MeetingsCalendar(p: CalendarProps) {
     router.push(`/meetings/${m.id}`);
   }
 
-  /** a tap on a free spot books a meeting there, on the half hour */
+  /** a tap on a free spot books a meeting there, on the half hour; the time can then be changed to any minute */
   function book(e: React.MouseEvent<HTMLDivElement>, day: string) {
     if (!p.canCreate || (e.target as HTMLElement).closest(".cev")) return;
     const y = e.clientY - e.currentTarget.getBoundingClientRect().top;

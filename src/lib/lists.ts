@@ -1,13 +1,14 @@
 // Lists a manager can change: sources for leads added by hand, the reasons for "לא רלוונטי" (and which of them mean
-// the lead was never real), and the names of meeting and task statuses. Until changed, the built-in ones apply.
+// the lead was never real), the names of meeting and task statuses, and the WhatsApp messages. Until changed, the built-in ones apply.
 import { cache } from "react";
 import { MANUAL_SOURCES, MEETING_STATE_ORDER, MEETING_STATES, REASONS, TASK_STATE_ORDER, TASK_STATES, type MeetingState, type TaskState } from "./crm/constants";
+import { cleanTemplates, DEFAULT_TEMPLATES, type WaTemplate } from "./crm/messages";
 import { prisma } from "./db";
 
 export type Reason = { label: string; junk: boolean };
-export type Lists = { sources: string[]; reasons: Reason[]; meeting: Record<MeetingState, string>; task: Record<TaskState, string> };
+export type Lists = { sources: string[]; reasons: Reason[]; meeting: Record<MeetingState, string>; task: Record<TaskState, string>; messages: WaTemplate[] };
 
-export const LIST_KEYS = { sources: "lists.sources", reasons: "lists.reasons", meeting: "labels.meeting", task: "labels.task" } as const;
+export const LIST_KEYS = { sources: "lists.sources", reasons: "lists.reasons", meeting: "labels.meeting", task: "labels.task", messages: "templates.whatsapp" } as const;
 
 /** Reasons that mean the lead was never real: it denies asking, or the number is wrong. */
 const JUNK_DEFAULT = ["הכחשת פנייה", "מספר לא תקין"];
@@ -17,6 +18,7 @@ export const DEFAULT_LISTS: Lists = {
   reasons: REASONS.map((label) => ({ label, junk: JUNK_DEFAULT.includes(label) })),
   meeting: Object.fromEntries(MEETING_STATE_ORDER.map((s) => [s, MEETING_STATES[s].l])) as Record<MeetingState, string>,
   task: Object.fromEntries(TASK_STATE_ORDER.map((s) => [s, TASK_STATES[s].l])) as Record<TaskState, string>,
+  messages: DEFAULT_TEMPLATES,
 };
 
 export const cleanItem = (s: unknown, max = 40) => (typeof s === "string" ? s.replace(/\s+/g, " ").trim().slice(0, max) : "");
@@ -41,6 +43,7 @@ export const getLists = cache(async (): Promise<Lists> => {
     reasons: reasons.length ? reasons : DEFAULT_LISTS.reasons,
     meeting: labels(v(LIST_KEYS.meeting), DEFAULT_LISTS.meeting),
     task: labels(v(LIST_KEYS.task), DEFAULT_LISTS.task),
+    messages: v(LIST_KEYS.messages) === undefined ? DEFAULT_TEMPLATES : cleanTemplates(v(LIST_KEYS.messages)),
   };
 });
 
@@ -50,5 +53,5 @@ export async function saveList(kind: keyof typeof LIST_KEYS, value: unknown): Pr
 }
 
 /** What the browser needs: the reasons as plain names. */
-export type ClientLists = { sources: string[]; reasons: string[]; meeting: Record<MeetingState, string>; task: Record<TaskState, string> };
-export const toClient = (l: Lists): ClientLists => ({ sources: l.sources, reasons: l.reasons.map((r) => r.label), meeting: l.meeting, task: l.task });
+export type ClientLists = { sources: string[]; reasons: string[]; meeting: Record<MeetingState, string>; task: Record<TaskState, string>; messages: WaTemplate[] };
+export const toClient = (l: Lists): ClientLists => ({ sources: l.sources, reasons: l.reasons.map((r) => r.label), meeting: l.meeting, task: l.task, messages: l.messages });

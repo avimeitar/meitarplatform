@@ -572,6 +572,8 @@ textarea:focus,.fld input:focus,.fld select:focus{outline:0;border-color:var(--b
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chips button{min-height:48px;padding:0 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:var(--fs-2);font-weight:500}
 .chips button.on{border-color:var(--blue);background:var(--blue);color:#fff}
+.exact-time{margin-top:12px;max-width:240px}
+.chips + .exact-time{margin-top:14px}
 .pchips label{position:relative}
 .file-chip{display:inline-flex;align-items:center;gap:6px;max-width:100%;margin-top:8px;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:var(--fs-1)}
 .file-chip svg{flex:none;width:15px;height:15px}
@@ -1116,6 +1118,18 @@ a.cev,a.mev{text-decoration:none}
 .set-add{display:flex;gap:8px;max-width:420px}
 .set-add input{flex:1;min-width:0;height:38px;padding:0 12px;border:1px solid var(--field-line);border-radius:9px;background:var(--surface)}
 .set-labels{margin-top:0}
+.row-start{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px}
+.set-msg-list li{display:block;padding:0}
+.set-msg-head{display:flex;align-items:center;gap:6px;padding:6px 10px}
+.set-msg-title{flex:1;min-width:0;display:flex;align-items:center;gap:8px;min-height:40px;padding:0;border:0;background:transparent;text-align:start;font-weight:500;color:var(--ink)}
+.set-msg-title svg{width:18px;height:18px;flex:none;color:#1F7A4D}
+.set-msg-title span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.set-msg-title small{flex:none;font-weight:400;font-size:var(--fs-1);color:var(--ink-3)}
+.set-msg-form{display:grid;gap:12px;padding:4px 12px 14px;border-top:1px solid var(--line-soft)}
+.set-msg-form textarea{width:100%;padding:10px 12px;line-height:1.55;resize:vertical}
+.set-fields{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.set-preview{display:grid;gap:6px}
+.set-preview p{margin:0;max-width:440px;padding:10px 12px;border-radius:12px 12px 4px 12px;background:#DCF8C6;color:#111B21;white-space:pre-wrap;line-height:1.5;overflow-wrap:anywhere}
 .set-names{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
 .set-names .fld input{width:100%;border:1px solid var(--field-line);border-radius:9px;background:var(--surface)}
 @media (max-width:760px){

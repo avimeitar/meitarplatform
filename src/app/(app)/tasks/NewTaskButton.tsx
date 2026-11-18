@@ -50,7 +50,7 @@ function TaskForm({ people, meId, canAssign }: { people: { id: string; name: str
         </label>
         <label className="fld">
           <span>שעה</span>
-          <input type="time" step={900} value={time} onChange={(e) => setTime(e.target.value)} />
+          <input type="time" step={60} value={time} onChange={(e) => setTime(e.target.value)} />
         </label>
       </div>
       {canAssign && (

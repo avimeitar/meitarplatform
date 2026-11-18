@@ -18,8 +18,9 @@ import { useLists, useShellData } from "@/components/ShellData";
 import { useDrawer } from "@/components/ui/Overlays";
 import { useRunner } from "@/components/ui/useRunner";
 import type { ActionResult } from "@/lib/action";
-import { OFFICE, OFFICE_ADDRESS } from "@/lib/crm/constants";
-import { LATER, dayFull, fT, laterDate, laterLabel, meetDays, pad, slotsFor, sod, addDays, timeWarning, WD } from "@/lib/crm/dates";
+import { OFFICE } from "@/lib/crm/constants";
+import { LATER, at, dayFull, fT, laterDate, laterLabel, meetDays, pad, slotsFor, sod, addDays, timeWarning, WD } from "@/lib/crm/dates";
+import { DEFAULT_TEMPLATES, fillTemplate, MEETING_TEMPLATE, needsMeeting, type Values } from "@/lib/crm/messages";
 import { firstName } from "./bits";
 
 // Booking works on the device's own calendar days; the server reads day + time as Israel time.
@@ -150,6 +151,12 @@ export function OutcomeSheet({ lead, meetingId, onDone }: { lead: SheetLead; mee
 
 // ---------------------------------------------------------------- booking a meeting
 
+/** "10:10" on that day. */
+const atTime = (d: Date, t: string) => {
+  const [h, m] = t.split(":").map(Number);
+  return at(d, h, m || 0);
+};
+
 export function BookingStep({
   lead,
   meetingId,
@@ -181,14 +188,14 @@ export function BookingStep({
     return list;
   }, [initialDay]);
   const start = initialDay && days.some((x) => dayKey(x) === initialDay) ? initialDay : null;
-  const startSlots = start ? slotsFor(days.find((x) => dayKey(x) === start) as Date) : [];
   const [day, setDay] = useState<string | null>(start);
+  // any time, to the minute: a round hour is one tap, anything else is typed (or comes from the calendar, and can be changed)
   const [time, setTime] = useState<string | null>(start && initialTime ? initialTime : null);
-  const [other, setOther] = useState(!!(start && initialTime && !startSlots.includes(initialTime)));
   const d = day ? days.find((x) => dayKey(x) === day) ?? null : null;
   const times = d ? slotsFor(d) : [];
-  const warn = timeWarning(d, time);
-  const ready = !!(d && time);
+  const past = !!(d && time && sameLocal(d, sod(new Date())) && atTime(d, time).getTime() < Date.now());
+  const warn = past ? "השעה הזו כבר עברה. אפשר לבחור שעה מאוחרת יותר או יום אחר." : timeWarning(d, time);
+  const ready = !!(d && time && !past);
   const drawer = useDrawer();
   const runner = useRunner();
   const shell = useShellData();
@@ -232,7 +239,7 @@ export function BookingStep({
           const today = sod(new Date());
           const rel = sameLocal(x, today) ? "היום" : sameLocal(x, addDays(today, 1)) ? "מחר" : "";
           return (
-            <button key={dayKey(x)} type="button" className={on ? "on" : ""} aria-pressed={on} onClick={() => (setDay(dayKey(x)), setTime(null), setOther(false))}>
+            <button key={dayKey(x)} type="button" className={on ? "on" : ""} aria-pressed={on} onClick={() => setDay(dayKey(x))}>
               <b>{rel || WD[x.getDay()]}</b>
               <small>{(rel ? WD[x.getDay()] + " " : "") + x.getDate() + "." + (x.getMonth() + 1)}</small>
             </button>
@@ -242,23 +249,20 @@ export function BookingStep({
       {d && (
         <>
           <p className="q">באיזו שעה?</p>
-          <div className="chips">
-            {times.map((t) => (
-              <button key={t} type="button" className={time === t && !other ? "on" : ""} aria-pressed={time === t && !other} onClick={() => (setTime(t), setOther(false))}>
-                {t}
-              </button>
-            ))}
-            <button type="button" className={other ? "on" : ""} aria-pressed={other} onClick={() => (setOther(true), setTime(null))}>
-              שעה אחרת
-            </button>
-          </div>
-          {other && (
-            <label className="fld">
-              <span>איזו שעה?</span>
-              <input type="time" step={900} autoFocus value={time ?? ""} onChange={(e) => setTime(e.target.value || null)} />
-            </label>
+          {times.length > 0 && (
+            <div className="chips">
+              {times.map((t) => (
+                <button key={t} type="button" className={time === t ? "on" : ""} aria-pressed={time === t} onClick={() => setTime(t)}>
+                  {t}
+                </button>
+              ))}
+            </div>
           )}
-          {!times.length && !other && <p className="muted">אין יותר שעות פנויות ביום הזה. אפשר לבחור יום אחר או ״שעה אחרת״.</p>}
+          <label className="fld exact-time">
+            <span>{times.length ? "או שעה מדויקת" : "שעה"}</span>
+            <input type="time" step={60} value={time ?? ""} onChange={(e) => setTime(e.target.value || null)} />
+            <small>אפשר כל שעה, למשל 10:10</small>
+          </label>
           {warn && (
             <p className="warn-line" role="alert">
               <Icon name="alert" />
@@ -351,26 +355,36 @@ export function waLink(phoneRaw: string, text: string): string {
 }
 
 /** The meeting's details and the office address, one per line, ready for WhatsApp. */
-export function meetingMessage(lead: Pick<SheetLead, "name" | "projectName">, start: Date, hostName?: string | null): string {
-  return [
-    `היי ${firstName(lead.name)}, כאן מקבוצת מיתר. אלה פרטי הפגישה שלנו:`,
-    "",
-    `מתי: יום ${WD[start.getDay()]} ${start.getDate()}.${start.getMonth() + 1} בשעה ${fT(start)}`,
-    `איפה: ${OFFICE.address}`,
-    ...(lead.projectName ? [`בנושא: ${lead.projectName}`] : []),
-    ...(hostName ? [`נפגשים עם: ${hostName}`] : []),
-    "",
-    `ניווט בוויז: ${OFFICE.waze}`,
-    "",
-    "לכל שאלה אפשר לכתוב לנו כאן. נתראה!",
-  ].join("\n");
+/** The WhatsApp messages, in the words the managers chose (רשימות והגדרות), filled in for one client and signed by whoever sends them. */
+export function useMessages() {
+  const { lists, meName, appUrl } = useShellData();
+  const base = (lead: Pick<SheetLead, "name" | "projectName">): Values => ({
+    לקוח: firstName(lead.name),
+    נציג: meName,
+    פרויקט: lead.projectName || "",
+    כתובת: OFFICE.address,
+    ווייז: appUrl ? `${appUrl}/waze` : OFFICE.waze,
+  });
+  const when = (start: Date, hostName?: string | null): Values => ({ יום: `${WD[start.getDay()]} ${start.getDate()}.${start.getMonth() + 1}`, שעה: fT(start), "נפגשים עם": hostName ?? "" });
+  return {
+    /** The meeting's details: sent right after booking, and from the meeting's card. */
+    meeting(lead: Pick<SheetLead, "name" | "projectName">, start: Date, hostName?: string | null): string {
+      const t = lists.messages.find((x) => x.id === MEETING_TEMPLATE) ?? DEFAULT_TEMPLATES[0];
+      return fillTemplate(t.text, { ...base(lead), ...when(start, hostName) });
+    },
+    /** The ready messages for a client, as [title, text]. One about a meeting shows when the client has a meeting coming. */
+    ready(lead: SheetLead): [string, string][] {
+      const next = lead.meeting ? new Date(lead.meeting.startAt) : null;
+      return lists.messages.filter((t) => next || !needsMeeting(t)).map((t) => [t.title, fillTemplate(t.text, { ...base(lead), ...(next ? when(next, lead.meeting?.hostName) : {}) })]);
+    },
+  };
 }
 
 /** Right after booking: the details are ready to go out on WhatsApp, from the person's own phone. */
 function MeetingBooked({ lead, start, hostName, onClose }: { lead: SheetLead; start: Date; hostName: string | null; onClose: () => void }) {
   const drawer = useDrawer();
   const runner = useRunner();
-  const text = meetingMessage(lead, start, hostName);
+  const text = useMessages().meeting(lead, start, hostName);
   useEffect(() => {
     drawer.retitle("הפגישה נקבעה");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -402,27 +416,16 @@ function MeetingBooked({ lead, start, hostName, onClose }: { lead: SheetLead; st
   );
 }
 
-export function readyMessages(lead: SheetLead): [string, string][] {
-  const fn = firstName(lead.name);
-  const p = lead.projectName || "הפרויקט";
-  const next = lead.meeting ? new Date(lead.meeting.startAt) : null;
-  return [
-    ...(next ? ([["פרטי הפגישה", meetingMessage(lead, next, lead.meeting?.hostName)]] as [string, string][]) : []),
-    [`פרטים על ${p}`, `היי ${fn}, כאן מקבוצת מיתר. שולחים לך את כל הפרטים על ${p}. נשמח לענות על כל שאלה.`],
-    ["ניסינו להשיג אותך", `היי ${fn}, ניסינו להשיג אותך בקשר ל${p}. מתי נוח לך שנחזור?`],
-    ["מיקום המשרד", OFFICE_ADDRESS],
-  ];
-}
-
 /** Opens the person's own WhatsApp with the text ready, and records it on the lead. */
 export function WaSheet({ lead, onDone }: { lead: SheetLead; onDone?: Done }) {
   const drawer = useDrawer();
   const runner = useRunner();
+  const messages = useMessages();
   return (
     <div className="sheet-body">
       <p className="muted">ההודעה תיפתח בוואטסאפ שלך, מוכנה לשליחה. שם לוחצים ״שליחה״.</p>
       <div className="opts">
-        {readyMessages(lead).map(([title, text]) => (
+        {messages.ready(lead).map(([title, text]) => (
           <a
             key={title}
             className="opt good"

@@ -116,6 +116,34 @@ try {
   await a.click('.panel:has-text("מקורות הגעה") .set-add button');
   await a.click('.panel:has-text("מקורות הגעה") button:has-text("שמירה")');
   ok("a manager adds a source", (await toast(a)).includes("נשמרו"));
+  // a WhatsApp message gets a new name; the team sees it on the client card further down
+  const msgTitle = "פרטים ומחירון " + (Date.now() % 1000);
+  await a.click(".set-msg-list li >> nth=1 >> .set-msg-title");
+  await a.fill(".set-msg-form input", msgTitle);
+  ok("the message preview fills in the details", (await a.locator(".set-preview p").innerText()).includes("נועה"));
+  await a.click('.set-msgs button:has-text("שמירה")');
+  ok("a manager rewords a WhatsApp message", (await toast(a)).includes("ההודעות נשמרו"));
+  const waze = await fetch(`${BASE}/waze`, { redirect: "manual" });
+  ok("the short Waze link leads to Waze", waze.status === 302 && (waze.headers.get("location") || "").startsWith("https://waze.com/"), waze.status);
+
+  // ---- a lead supplier's personal link ----
+  await a.goto(`${BASE}/intake`);
+  await a.click('.head-actions button:has-text("מפתח חדש")');
+  await a.fill(".drawer .ik-form input >> nth=0", "ספק בדיקה " + (Date.now() % 1000));
+  await a.click('.drawer .ik-chips button:has-text("ספק לידים")');
+  await a.click('.drawer button[type=submit]');
+  await a.waitForSelector(".drawer .ik-ready", { timeout: 10000 });
+  const supplierLink = ((await a.locator(".drawer .ik-ready .ik-secret >> nth=0").textContent()) || "").trim();
+  ok("a new key comes with a personal link", supplierLink.includes("/api/v1/leads?key=mk_"), supplierLink.slice(0, 60));
+  const waSend = (await a.locator('.drawer .ik-send a:has-text("בוואטסאפ")').getAttribute("href")) || "";
+  const mailSend = (await a.locator('.drawer .ik-send a:has-text("במייל")').getAttribute("href")) || "";
+  ok("the link goes to the supplier by WhatsApp or email", waSend.startsWith("https://wa.me/?text=") && decodeURIComponent(waSend).includes(supplierLink) && mailSend.startsWith("mailto:"));
+  const check = await (await fetch(supplierLink)).json().catch(() => ({}));
+  ok("opening the link only checks it", check.ok === true && check.check === true);
+  const supplierPhone = "05" + String(Math.floor(Math.random() * 1e8)).padStart(8, "0");
+  const sent = await fetch(`${supplierLink}&name=${encodeURIComponent("ליד מספק")}&phone=${supplierPhone}`);
+  ok("a supplier sends a lead with the details in the link", sent.status === 201 || sent.status === 200, sent.status);
+  await a.keyboard.press("Escape");
 
   // ---- the rep's day on a phone ----
   const p = await (await browser.newContext(phone)).newPage();
@@ -136,8 +164,10 @@ try {
     await p.waitForSelector(".drawer .opt");
     await p.click('.drawer .opt:has-text("קבענו פגישה")');
     await p.click(".drawer .chips.days button >> nth=1");
-    await p.click(".drawer .chips >> nth=1 >> button >> nth=0");
+    // not only round hours: any time, to the minute
+    await p.fill(".drawer .exact-time input", "11:10");
     ok("the save button reads the booking back", (await p.locator(".drawer .sheet-foot .bigbtn").textContent()).startsWith("לקבוע:"));
+    ok("a meeting can be booked at any minute", (await p.locator(".drawer .sheet-foot .bigbtn").textContent()).includes("11:10"));
     await p.click(".drawer .sheet-foot .bigbtn");
     const booked = await toast(p);
     ok("meeting booked", booked.includes("נקבעה"));
@@ -146,6 +176,8 @@ try {
     const waHref = (await p.locator(".drawer a.bigbtn.wa").getAttribute("href")) || "";
     ok("after booking, the details and address are ready for WhatsApp", waHref.startsWith("https://wa.me/") && (await p.locator(".drawer .wa-preview").innerText()).includes("דרך רבין"));
     ok("booking has no place to choose: every meeting is at the office", !(await p.locator('.drawer :text("איפה?")').count()));
+    const details = await p.locator(".drawer .wa-preview").innerText();
+    ok("the meeting message is signed by the rep and links to Waze in short", details.includes("כאן אורנה מקבוצת מיתר") && details.includes("11:10") && details.includes(`${BASE}/waze`), details.slice(0, 80));
     await p.click('.drawer button:has-text("לא עכשיו")');
   } else ok("queue has leads (seed demo data first)", false);
   await p.goto(`${BASE}/leads`);
@@ -156,6 +188,9 @@ try {
   ok("lead card has no sideways scroll", (await overflow(p)) <= 0);
   ok("the lead's history entries don't overlap", await p.evaluate(() => [...document.querySelectorAll(".timeline .ev")].every((e) => getComputedStyle(e).position === "relative")));
   ok("the composer tabs are note, task, meeting, WhatsApp", (await p.locator(".ctabs button").allInnerTexts()).map((t) => t.trim()).join(",") === "הערה,משימה,תיאום פגישה,וואטסאפ");
+  await p.click('.ctabs button:has-text("וואטסאפ")');
+  await p.click(`.tpls button:has-text("${msgTitle}")`).catch(() => {});
+  ok("the team sends the message as the manager worded it, signed by the rep", ((await p.locator('textarea[aria-label="הודעת וואטסאפ"]').inputValue().catch(() => "")) || "").includes("כאן אורנה מקבוצת מיתר"));
   await p.click('.metro button:has-text("נחתמה עסקה")');
   await p.waitForSelector(".drawer");
   ok("a signed deal asks first", (await p.locator(".drawer h2").textContent()).includes("לסמן"));

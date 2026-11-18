@@ -5,6 +5,7 @@ import { run, type ActionResult } from "@/lib/action";
 import { audit } from "@/lib/audit";
 import { MEETING_STATE_ORDER, TASK_STATE_ORDER } from "@/lib/crm/constants";
 import { prisma } from "@/lib/db";
+import { cleanTemplates, MAX_TEMPLATES, MAX_TEXT, MAX_TITLE, MEETING_TEMPLATE, type WaTemplate } from "@/lib/crm/messages";
 import { cleanItem, saveList } from "@/lib/lists";
 import { ActionError, requestIp, requireActionUser } from "@/lib/session";
 import { setDefaultMeetingHost } from "@/lib/settings";
@@ -76,5 +77,28 @@ export async function setMeetingHostAction(userId: string | null): Promise<Actio
     await record(u, "meeting host", { userId: userId ?? null });
     refresh();
     return { message: name ? `מעכשיו פגישות נקבעות עם ${name}` : "מעכשיו פגישות נקבעות עם מי שקובע אותן" };
+  });
+}
+
+/** The WhatsApp messages the team sends, with fields such as {לקוח} filled in when sending. The meeting message always stays. */
+export async function saveMessagesAction(list: WaTemplate[]): Promise<ActionResult> {
+  return run(async () => {
+    const u = await requireActionUser("lists.manage");
+    const items = Array.isArray(list) ? list : [];
+    if (items.length > MAX_TEMPLATES) throw new ActionError(`אפשר עד ${MAX_TEMPLATES} הודעות`);
+    for (const t of items) {
+      const title = typeof t?.title === "string" ? t.title.trim() : "";
+      const text = typeof t?.text === "string" ? t.text.trim() : "";
+      if (!title) throw new ActionError("לכל הודעה צריך שם, כדי שיופיע על הכפתור");
+      if (title.length > MAX_TITLE) throw new ActionError(`השם ״${title.slice(0, 20)}…״ ארוך מדי. עד ${MAX_TITLE} תווים`);
+      if (!text) throw new ActionError(`ההודעה ״${title}״ ריקה`);
+      if (text.length > MAX_TEXT) throw new ActionError(`ההודעה ״${title}״ ארוכה מדי. עד ${MAX_TEXT} תווים`);
+    }
+    if (!items.some((t) => t?.id === MEETING_TEMPLATE)) throw new ActionError("הודעת פרטי הפגישה נשארת תמיד. אפשר לשנות את הנוסח שלה");
+    const value = cleanTemplates(items);
+    await saveList("messages", value);
+    await record(u, "whatsapp messages", { count: value.length });
+    refresh();
+    return { message: "ההודעות נשמרו" };
   });
 }

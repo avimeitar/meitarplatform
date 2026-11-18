@@ -5,7 +5,7 @@ import { useState } from "react";
 import { logWhatsAppAction, updateMeetingAction } from "@/app/actions/leads";
 import { Icon } from "@/components/Icon";
 import { MeetingStateButtons, MeetingStatePill } from "@/components/crm/MeetingState";
-import { meetingMessage, useLeadSheets, waLink, type SheetLead } from "@/components/crm/Sheets";
+import { useLeadSheets, useMessages, waLink, type SheetLead } from "@/components/crm/Sheets";
 import { StatusPill } from "@/components/crm/bits";
 import { useRunner } from "@/components/ui/useRunner";
 import { OFFICE } from "@/lib/crm/constants";
@@ -37,7 +37,8 @@ export function MeetingCard({ m, people, projects }: { m: MeetingCardData; peopl
   const start = new Date(m.startAt);
   const fn = m.client.name.split(/\s+/)[0];
   const lead: SheetLead = { id: m.client.leadId ?? "", name: m.client.name, phoneRaw: m.client.phoneRaw, projectName: m.project?.name ?? "" };
-  const wa = m.client.phoneRaw ? meetingMessage(lead, start, m.host?.name) : "";
+  const messages = useMessages();
+  const wa = m.client.phoneRaw ? messages.meeting(lead, start, m.host?.name) : "";
   // the project list may not hold a project that was closed since
   const projectOptions = m.project && !projects.some((p) => p.id === m.project?.id) ? [m.project, ...projects] : projects;
 
