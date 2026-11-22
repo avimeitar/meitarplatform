@@ -117,9 +117,9 @@ export async function archiveAll(by: { id: string; name: string }, keepProjectId
 
       const batch = await tx.archiveBatch.create({ data: { byId: by.id, byName: by.name, kept, counts: {} } });
       let written = 0;
+      // in steps of 500: thousands of imported meetings in one insert would pass PostgreSQL's limit on values per statement
       const write = async (rows: Prisma.ArchiveRecordCreateManyInput[]) => {
-        if (!rows.length) return;
-        written += (await tx.archiveRecord.createMany({ data: rows })).count;
+        for (const part of chunks(rows, 500)) written += (await tx.archiveRecord.createMany({ data: part })).count;
       };
 
       // clients, each with its whole story
