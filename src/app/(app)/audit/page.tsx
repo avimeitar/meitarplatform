@@ -19,6 +19,7 @@ const GROUPS: Record<string, string> = {
   project: "פרויקטים",
   settings: "הגדרות",
   archive: "ארכיון",
+  backup: "גיבוי",
 };
 
 function describe(meta: unknown): string {

@@ -44,6 +44,11 @@ export default async function ArchivePage({ searchParams }: { searchParams: Prom
           <p className="sub">לקוחות, פגישות, משימות ופרויקטים שהועברו לארכיון, כמו שהיו ביום ההעברה, עם כל ההיסטוריה. רק מנהלי מערכת רואים את המסך הזה.</p>
         </div>
         <div className="head-actions">
+          {/* a plain link: the file downloads, and can go straight into a Google Drive folder */}
+          <a className="btn ghost" href="/api/backup" download>
+            <Icon name="lock" />
+            הורדת גיבוי מלא
+          </a>
           {total > 0 && (
             <a className="btn ghost" href={exportHref}>
               <Icon name="upload" />

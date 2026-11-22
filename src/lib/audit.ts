@@ -69,6 +69,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   "apikey.revoke": "ביטול מפתח לקליטת לידים",
   "archive.run": "העברה לארכיון",
   "archive.export": "ייצוא מהארכיון",
+  "backup.download": "הורדת גיבוי מלא",
   "project.create": "הוספת פרויקט",
   "project.update": "עדכון פרויקט",
   "settings.require_code": "שינוי חובת קוד בכניסה",

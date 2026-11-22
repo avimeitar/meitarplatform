@@ -350,6 +350,12 @@ try {
   await h.waitForURL("**/denied", { timeout: 10000 }).catch(() => {});
   ok("agents can't open the archive", h.url().includes("/denied"));
   ok("agents can't export the archive", (await h.evaluate(async () => (await fetch("/api/export/archive")).status)) === 403);
+  const backup = await a.evaluate(async () => {
+    const r = await fetch("/api/backup");
+    return { status: r.status, type: r.headers.get("content-type"), name: r.headers.get("content-disposition"), size: (await r.arrayBuffer()).byteLength };
+  });
+  ok("a system administrator downloads a full backup in one file", backup.status === 200 && backup.type === "application/gzip" && (backup.name || "").includes("meitar-backup-") && backup.size > 1000, JSON.stringify(backup));
+  ok("agents can't download a backup", (await h.evaluate(async () => (await fetch("/api/backup")).status)) === 403);
   ok("no page errors", errors.length === 0, errors.join(" | "));
 } catch (e) {
   results.push("CRASH " + String(e.message).split("\n")[0]);

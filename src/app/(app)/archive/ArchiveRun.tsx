@@ -76,7 +76,13 @@ function RunForm({ projects }: { projects: ProjectOption[] }) {
       </div>
       <p className="warn-line">
         <Icon name="alert" />
-        <span>אחרי ההעברה המערכת מתחילה נקייה, ורק מנהלי מערכת רואים את מה שבארכיון. לפני ההעברה כדאי לגבות את מסד הנתונים ב-Railway.</span>
+        <span>
+          אחרי ההעברה המערכת מתחילה נקייה, ורק מנהלי מערכת רואים את מה שבארכיון. לפני ההעברה כדאי{" "}
+          <a href="/api/backup" download>
+            להוריד גיבוי מלא
+          </a>{" "}
+          ולשמור אותו בתיקייה בדרייב.
+        </span>
       </p>
       <label className="fld">
         <span>כדי לאשר, כתבו: {CONFIRM_WORDS}</span>
