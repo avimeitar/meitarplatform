@@ -195,14 +195,19 @@ try {
   await p.waitForSelector(".drawer");
   ok("a signed deal asks first", (await p.locator(".drawer h2").textContent()).includes("לסמן"));
   await p.click('.drawer button:has-text("עוד לא")');
-  await p.goto(`${BASE}/meetings`);
-  ok("meetings open as a calendar", (await p.locator(".cal").count()) === 1);
+  // the calendar is for viewing; meetings are booked and updated on the meetings screen
+  await p.goto(`${BASE}/calendar`);
+  ok("the meetings calendar has its own screen", (await p.locator(".cal").count()) === 1);
+  ok("the calendar is for viewing: no new meeting there", !(await p.locator('button:has-text("פגישה חדשה")').count()));
   const ev = p.locator(".cal-col.sel .cev, .mev").first();
   if (await ev.count()) {
     await ev.click();
+    await p.waitForSelector(".drawer .peek", { timeout: 10000 }).catch(() => {});
+    ok("a meeting on the calendar shows its details, read only", (await p.locator(".drawer .peek .kv").count()) === 1 && !(await p.locator(".drawer .peek select, .drawer .peek .mstates").count()));
+    await p.click('.drawer .peek-acts a:has-text("לכרטיס הפגישה"), .drawer .peek-acts a:has-text("לעריכה")');
     await p.waitForURL(/\/meetings\/[^/?]+$/, { timeout: 10000 }).catch(() => {});
     await p.waitForSelector(".meeting-card", { timeout: 10000 }).catch(() => {});
-    ok("a meeting on the calendar opens its own card", (await p.locator(".meeting-card .mstates button").count()) === 6);
+    ok("from the details, the meeting's card opens for changes", (await p.locator(".meeting-card .mstates button").count()) === 6);
     ok("the meeting card has no sideways scroll", (await overflow(p)) <= 0);
     if (await p.locator(".mc-note textarea").count()) {
       // fresh text each run, so the save button is never left disabled by an earlier run
@@ -211,7 +216,8 @@ try {
       ok("a meeting's description is saved", (await toast(p)).includes("נשמרו"));
     }
   }
-  await p.goto(`${BASE}/meetings?view=list`);
+  await p.goto(`${BASE}/meetings`);
+  ok("the meetings screen opens on the list", (await p.locator(".mtable, .mviews").count()) > 0 && !(await p.locator(".cal").count()));
   ok("the meetings list has status tabs with counts", (await p.locator(".mviews .view").count()) === 7);
   const setRow = p.locator(".mtable tbody tr:has(.msel.m-set)").first();
   if (await setRow.count()) {
@@ -329,6 +335,21 @@ try {
   await a.waitForSelector(".perf-kpis");
   ok("performance: six tiles and the rep table", (await a.locator(".perf-kpis .kpi").count()) === 6 && (await a.locator(".perf-reps tbody tr").count()) > 0);
   ok("performance: system administrators are not in the rep table", !(await a.locator(".perf-reps").innerText()).includes("מנהל בדיקה"));
+
+  // ---- the archive: system administrators only ----
+  await a.goto(`${BASE}/archive`);
+  ok("the archive opens for a system administrator", ((await a.locator("h1").textContent()) || "").includes("ארכיון"));
+  await a.click('.head-actions button:has-text("העברה לארכיון")');
+  await a.waitForSelector(".drawer .ar-sum b", { timeout: 10000 }).catch(() => {});
+  const moveBtn = a.locator('.drawer button:has-text("להעביר לארכיון")');
+  ok("moving to the archive shows what moves, and waits for the words", (await a.locator(".drawer .ar-sum b").count()) === 4 && (await moveBtn.isDisabled()));
+  await a.fill(".drawer .ar-run .fld input", "להעביר לארכיון");
+  ok("the words unlock the move", !(await moveBtn.isDisabled()));
+  await a.click('.drawer button:has-text("ביטול")');
+  await h.goto(`${BASE}/archive`);
+  await h.waitForURL("**/denied", { timeout: 10000 }).catch(() => {});
+  ok("agents can't open the archive", h.url().includes("/denied"));
+  ok("agents can't export the archive", (await h.evaluate(async () => (await fetch("/api/export/archive")).status)) === 403);
   ok("no page errors", errors.length === 0, errors.join(" | "));
 } catch (e) {
   results.push("CRASH " + String(e.message).split("\n")[0]);

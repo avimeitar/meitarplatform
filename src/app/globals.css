@@ -1137,3 +1137,28 @@ a.cev,a.mev{text-decoration:none}
   .set-list li{flex-wrap:wrap}
   .set-add input{height:44px}
 }
+/* a meeting's details from the calendar, read only */
+.peek-when{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 6px;font-size:var(--fs-3)}
+.peek-note{margin:0;padding:10px 12px;border-radius:10px;background:#F4F6FA;white-space:pre-wrap;line-height:1.5}
+.peek-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+/* the archive: system administrators only */
+.ar-batches ul{list-style:none;margin:0;padding:0}
+.ar-batches li{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;padding:8px 0;border-top:1px solid var(--line-soft)}
+.ar-batches li:first-child{border-top:0}
+.ar-batches li small{flex-basis:100%}
+.ar-tools{flex-wrap:wrap;align-items:center;gap:8px}
+.ar-search{flex:1 1 260px;max-width:420px}
+.ar-table .lk{font-weight:500}
+.ar-pages{display:flex;align-items:center;justify-content:center;gap:12px}
+.ar-run > p:first-child{margin:0}
+.ar-keep{display:grid;gap:2px;margin:0;padding:10px 12px;border:1px solid var(--line);border-radius:12px}
+.ar-keep legend{padding:0 4px;font-weight:600}
+.ar-sum{display:grid;gap:4px;padding:10px 12px;border-radius:12px;background:#F4F6FA}
+.ar-sum p{margin:0;font-size:var(--fs-2)}
+.ar-mini{list-style:none;margin:0;padding:0}
+.ar-mini li{display:flex;flex-direction:column;gap:2px;padding:8px 0;border-top:1px solid var(--line-soft)}
+.ar-mini li:first-child{border-top:0}
+.ar-mini span{font-size:var(--fs-1);color:var(--ink-3)}
+.ar-meeting{padding:10px 0;border-top:1px solid var(--line-soft)}
+.ar-meeting:first-of-type{border-top:0}
+.ar-back{margin-bottom:10px}

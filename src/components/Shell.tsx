@@ -30,6 +30,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/work", label: "תור שיחות", icon: "phone", key: "work" },
       { href: "/leads", label: "לקוחות", icon: "users", key: "leads" },
       { href: "/meetings", label: "פגישות", icon: "cal", key: "meetings" },
+      { href: "/calendar", label: "יומן פגישות", icon: "layout" },
       { href: "/tasks", label: "משימות", icon: "check", key: "tasks" },
       { href: "/hours", label: "שעות עבודה", icon: "clock", hours: true },
     ],
@@ -51,6 +52,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/settings", label: "רשימות והגדרות", icon: "filter", need: ["lists.manage"] },
       { href: "/import", label: "ייבוא מפיירברי", icon: "upload", need: ["leads.import"] },
       { href: "/audit", label: "יומן פעולות", icon: "list", need: ["audit.view"] },
+      { href: "/archive", label: "ארכיון", icon: "archive", need: ["archive.manage"] },
     ],
   },
 ];

@@ -18,6 +18,7 @@ export const PERMISSIONS = {
   "users.manage": { group: "משתמשים", label: "להוסיף, לערוך, להשבית ולמחוק משתמשים" },
   "roles.manage": { group: "משתמשים", label: "לקבוע מה כל תפקיד יכול לעשות" },
   "audit.view": { group: "משתמשים", label: "לראות את יומן הפעולות" },
+  "archive.manage": { group: "משתמשים", label: "הארכיון: לראות את מה שהועבר אליו, ולהעביר אליו" },
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -65,10 +66,13 @@ export const BUILT_IN_ROLES: Record<BuiltInRoleKey, { name: string; description:
 
 export type RoleLike = { locked: boolean; permissions: string[] };
 
+/** Only the system administrators have these: they cannot be given to any other role. */
+export const ADMIN_ONLY: Permission[] = ["archive.manage"];
+
 /** The admin role always has everything, even permissions added in a later version. */
 export function rolePermissions(role: RoleLike): Set<Permission> {
   if (role.locked) return new Set(ALL_PERMISSIONS);
-  return new Set(role.permissions.filter(isPermission));
+  return new Set(role.permissions.filter((p): p is Permission => isPermission(p) && !ADMIN_ONLY.includes(p)));
 }
 
 /** A person may only hand out what they have themselves. */
@@ -80,6 +84,8 @@ export function canGrant(actor: Set<Permission>, target: Set<Permission>): boole
 export function permissionGroups(): { group: string; items: { key: Permission; label: string }[] }[] {
   const groups: { group: string; items: { key: Permission; label: string }[] }[] = [];
   for (const key of ALL_PERMISSIONS) {
+    // what only the system administrators have is not offered to other roles
+    if (ADMIN_ONLY.includes(key)) continue;
     const { group, label } = PERMISSIONS[key];
     let g = groups.find((x) => x.group === group);
     if (!g) groups.push((g = { group, items: [] }));

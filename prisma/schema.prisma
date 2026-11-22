@@ -454,3 +454,42 @@ model PushSubscription {
 
   @@index([userId])
 }
+
+// ---------------------------------------------------------------- archive
+
+/// One move to the archive: who made it, when, which projects stayed, and how much moved.
+model ArchiveBatch {
+  id        String          @id @default(cuid())
+  createdAt DateTime        @default(now())
+  byId      String?
+  byName    String
+  /// the names of the projects that stayed in the system
+  kept      String[]
+  /// { leads, meetings, tasks, projects }
+  counts    Json
+  records   ArchiveRecord[]
+}
+
+/// A client, meeting, task or project as it was when it moved to the archive. Read only; system administrators see it.
+model ArchiveRecord {
+  id         String       @id @default(cuid())
+  batchId    String
+  batch      ArchiveBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  /// lead | meeting | task | project
+  kind       String
+  originalId String
+  name       String
+  /// E.164, for finding a client who comes back
+  phone      String?
+  project    String?
+  status     String?
+  owner      String?
+  /// a client, task or project: when it was created; a meeting: when it took place
+  at         DateTime
+  /// everything about it: for a client, its history, inquiries, meetings and tasks too
+  data       Json
+
+  @@index([kind, at])
+  @@index([phone])
+  @@index([batchId])
+}

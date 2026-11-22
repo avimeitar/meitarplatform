@@ -349,7 +349,7 @@ try {
   const WEEK = [`m."startAt" >= $1 AND m."startAt" < $2`, [ts(ws), ts(addDays(ws, 7))]];
   const HIDDEN = `m.status NOT IN ('cancel', 'resched')`;
   const events = (p) => p.locator(".cev").count();
-  await a.goto(`${BASE}/meetings?view=cal&mode=week&who=all&date=${iso(today)}`);
+  await a.goto(`${BASE}/calendar?mode=week&who=all&date=${iso(today)}`);
   same("calendar: the week", await events(a), await M(`${WEEK[0]} AND ${HIDDEN}`, WEEK[1]));
   const calPeople = (await options(sel(a, "של מי"))).filter((o) => o.value);
   for (const o of calPeople) {
@@ -375,14 +375,12 @@ try {
   await settle(a);
   ok("calendar: the next week keeps the filters", param(a, "cancelled") === "1" && param(a, "who") === "all");
   same("calendar: the next week", await events(a), await M(`m."startAt" >= $1 AND m."startAt" < $2`, [ts(addDays(ws, 7)), ts(addDays(ws, 14))]));
-  await a.goto(`${BASE}/meetings?view=cal&mode=week&who=mine&date=${iso(today)}`);
+  await a.goto(`${BASE}/calendar?mode=week&who=mine&date=${iso(today)}`);
   same(`calendar: "mine"`, await events(a), await M(`${WEEK[0]} AND ${HIDDEN} AND (m."setById" = $3 OR m."hostId" = $3 OR l."ownerId" = $3)`, [...WEEK[1], adminId]));
-  // switching between the calendar and the list keeps the person and the project
-  await a.goto(`${BASE}/meetings?view=cal&mode=week&who=all&date=${iso(today)}&person=${agentId}`);
-  await a.click('.seg a:has-text("רשימה")');
-  await a.waitForURL((u) => u.searchParams.get("view") === "list").catch(() => {});
-  await settle(a);
-  ok("meetings: the list keeps the person chosen in the calendar", param(a, "person") === agentId);
+  // an old link to the calendar on the meetings screen leads to the calendar, filters and all
+  await a.goto(`${BASE}/meetings?view=cal&mode=week&who=all&person=${agentId}`);
+  await a.waitForURL("**/calendar**", { timeout: 10000 }).catch(() => {});
+  ok("meetings: an old calendar link opens the calendar with its filters", new URL(a.url()).pathname === "/calendar" && param(a, "person") === agentId);
 
   // =============================================================== tasks
   const RECENT = new Date(Date.now() - 15 * 60_000);

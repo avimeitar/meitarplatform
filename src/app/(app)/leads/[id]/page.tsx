@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { Icon } from "@/components/Icon";
+import { archivedClient } from "@/lib/archive";
 import { notFound } from "next/navigation";
 import { openTaskWhere, taskRow } from "@/lib/crm/views";
 import { prisma } from "@/lib/db";
@@ -59,13 +62,23 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
     })),
     tasks: tasks.map(taskRow),
   };
+  // a client who was here before: only the system administrators see the archive
+  const archived = can(u, "archive.manage") ? await archivedClient(l.phone) : null;
   return (
-    <LeadCard
-      lead={data}
-      projects={projects}
-      people={people}
-      perms={{ edit: can(u, "leads.edit"), assign: can(u, "leads.assign"), del: can(u, "leads.delete"), assignTasks: can(u, "tasks.assign") }}
-      meId={u.id}
-    />
+    <>
+      {archived && (
+        <Link className="achip amber ar-back" href={`/archive/${archived.id}`}>
+          <Icon name="archive" />
+          הלקוח הזה היה במערכת בעבר. ההיסטוריה שלו בארכיון
+        </Link>
+      )}
+      <LeadCard
+        lead={data}
+        projects={projects}
+        people={people}
+        perms={{ edit: can(u, "leads.edit"), assign: can(u, "leads.assign"), del: can(u, "leads.delete"), assignTasks: can(u, "tasks.assign") }}
+        meId={u.id}
+      />
+    </>
   );
 }

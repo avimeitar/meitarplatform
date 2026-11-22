@@ -18,6 +18,7 @@ const GROUPS: Record<string, string> = {
   apikey: "קליטת לידים",
   project: "פרויקטים",
   settings: "הגדרות",
+  archive: "ארכיון",
 };
 
 function describe(meta: unknown): string {
@@ -30,6 +31,8 @@ function describe(meta: unknown): string {
   if (m.role) parts.push(String(m.role));
   if (typeof m.leads === "number") parts.push(`${m.leads} לקוחות הועברו`);
   if (typeof m.count === "number") parts.push(`${m.count} לקוחות`);
+  if (typeof m.meetings === "number") parts.push(`${m.meetings} פגישות, ${m.tasks ?? 0} משימות, ${m.projects ?? 0} פרויקטים`);
+  if (typeof m.kept === "string") parts.push(`נשארו: ${m.kept}`);
   if (Array.isArray(m.added) && m.added.length) parts.push("נוסף: " + m.added.join(", "));
   if (Array.isArray(m.removed) && m.removed.length) parts.push("הוסר: " + m.removed.join(", "));
   if (m.smsSent === true) parts.push("נשלח ב-SMS");

@@ -15,7 +15,7 @@ d("CRM rules on a real database", () => {
     ({ prisma } = await import("@/lib/db"));
     crm = await import("@/lib/crm/service");
     undo = await import("@/lib/undo");
-    await prisma.$executeRawUnsafe('TRUNCATE "Lead", "Activity", "Meeting", "Task", "Inquiry", "ActionLog", "PushSubscription", "session", "account", "user", "Role" CASCADE');
+    await prisma.$executeRawUnsafe('TRUNCATE "Lead", "Activity", "Meeting", "Task", "Inquiry", "ActionLog", "PushSubscription", "ArchiveRecord", "ArchiveBatch", "session", "account", "user", "Role" CASCADE');
     const role = await prisma.role.create({ data: { key: "agent", name: "סוכן", permissions: ["leads.view_all", "leads.create", "leads.edit"] } });
     const u = await prisma.user.create({ data: { id: "u-test", name: "סוכנת בדיקה", email: "t@users.meitar.invalid", roleId: role.id, autoAssign: true } });
     by = { id: u.id, name: u.name };
@@ -324,5 +324,57 @@ d("CRM rules on a real database", () => {
     const { leadId } = await newLead("+972500000105");
     const { undoId } = await undo.withUndo(by.id, "note", (tx, rec) => crm.addActivity(tx, rec, leadId, { kind: "note", text: "x" }));
     expect((await undo.undo("someone-else", undoId as string)).ok).toBe(false);
+  });
+
+  // last: it empties the working system
+  it("the archive: everything moves with its history, the chosen projects stay empty, and nothing is lost", async () => {
+    const archive = await import("@/lib/archive");
+    const t = Date.now() % 1_000_000;
+    const keep = await prisma.project.create({ data: { name: `חדרה ${t}`, fullName: "חדרה", place: "" } });
+    const leave = await prisma.project.create({ data: { name: `אתונה ${t}`, fullName: "אתונה", place: "" } });
+    const key = await prisma.apiKey.create({ data: { name: "ספק", prefix: `ar${t}`, hash: "x".repeat(64), source: "ספק", projectId: leave.id } });
+    const { leadId } = await newLead("+972500000801");
+    await prisma.lead.update({ where: { id: leadId }, data: { projectId: keep.id } });
+    await undo.withUndo(by.id, "note", (tx, rec) => crm.addActivity(tx, rec, leadId, { kind: "note", text: "הערה לארכיון" }));
+    await prisma.meeting.create({ data: { leadId, startAt: new Date(), place: "משרד", projectId: leave.id, setById: by.id } });
+    await prisma.task.create({ data: { leadId, userId: by.id, title: "לחזור", dueAt: new Date() } });
+    await prisma.meeting.create({ data: { clientName: "מפיירברי", startAt: new Date(), place: "משרד", repName: "נציג" } });
+    await prisma.task.create({ data: { userId: by.id, title: "משימה בלי לקוח", dueAt: new Date() } });
+    const before = { leads: await prisma.lead.count(), meetings: await prisma.meeting.count(), tasks: await prisma.task.count(), projects: await prisma.project.count() };
+
+    // the preview counts what would move
+    const preview = await archive.archivePreview([keep.id]);
+    expect(preview).toEqual({ leads: before.leads, meetings: before.meetings, tasks: before.tasks, projects: before.projects - 1 });
+
+    const r = await archive.archiveAll(by, [keep.id]);
+    expect(r.counts).toEqual(preview);
+    expect(r.kept).toEqual([keep.name]);
+    // the working system is clean, and the kept project is still there
+    expect(await prisma.lead.count()).toBe(0);
+    expect(await prisma.meeting.count()).toBe(0);
+    expect(await prisma.task.count()).toBe(0);
+    expect(await prisma.activity.count()).toBe(0);
+    expect((await prisma.project.findMany()).map((p) => p.id)).toEqual([keep.id]);
+    expect((await prisma.apiKey.findUniqueOrThrow({ where: { id: key.id } })).projectId).toBeNull();
+    // every record is in the archive, a client with its whole story
+    const records = await prisma.archiveRecord.findMany({ where: { batchId: r.batchId } });
+    expect(records.filter((x) => x.kind === "lead").length).toBe(before.leads);
+    const client = records.find((x) => x.originalId === leadId)!;
+    expect(client.project).toBe(keep.name);
+    const data = client.data as { activities: { text: string }[]; meetings: { project: string }[]; tasks: { title: string }[] };
+    expect(data.activities.some((a) => a.text === "הערה לארכיון")).toBe(true);
+    expect(data.meetings[0].project).toBe(leave.name);
+    expect(data.tasks[0].title).toBe("לחזור");
+    expect(records.some((x) => x.kind === "meeting" && x.name === "מפיירברי" && x.owner === "נציג")).toBe(true);
+    expect(records.some((x) => x.kind === "task" && x.name === "משימה בלי לקוח")).toBe(true);
+    expect(records.some((x) => x.kind === "project" && x.name === leave.name)).toBe(true);
+    // every meeting and task is found on its own too, the client's ones pointing back to the client
+    expect(records.filter((x) => x.kind === "meeting").length).toBe(before.meetings);
+    expect(records.filter((x) => x.kind === "task").length).toBe(before.tasks);
+    const clientTask = records.find((x) => x.kind === "task" && x.name === "לחזור")!;
+    expect((clientTask.data as { clientId: string }).clientId).toBe(leadId);
+    // the same client comes back: a new client, and the archive still knows the old one
+    expect((await archive.archivedClient("+972500000801"))?.id).toBe(client.id);
+    expect((await newLead("+972500000801")).duplicate).toBe(false);
   });
 });
