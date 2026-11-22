@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
-import { useLeadSheets } from "@/components/crm/Sheets";
+import { MeetingStatePill } from "@/components/crm/MeetingState";
+import { useDrawer } from "@/components/ui/Overlays";
 import { MS, type MeetingStatus } from "@/lib/crm/constants";
 import { dayFull, fT, iso, pad, wall, WD } from "@/lib/crm/dates";
+import { formatPhone } from "@/lib/phone";
 
 export type CalMeeting = {
   id: string;
@@ -40,7 +41,6 @@ export type CalendarProps = {
   endHour: number;
   /** a day of the whole team: one column per person */
   byPerson: boolean;
-  canCreate: boolean;
   dayHref: Record<string, string>;
 };
 
@@ -100,8 +100,7 @@ function stale(m: CalMeeting, now: number) {
 }
 
 export function MeetingsCalendar(p: CalendarProps) {
-  const router = useRouter();
-  const sheets = useLeadSheets();
+  const drawer = useDrawer();
   const [now, setNow] = useState<number | null>(null);
   // the time is only known in the browser: the "now" line and past slots wait for it
   useEffect(() => {
@@ -119,20 +118,9 @@ export function MeetingsCalendar(p: CalendarProps) {
     return map;
   }, [p.meetings]);
 
-  // a meeting opens its own card
+  // the calendar is for viewing: a meeting shows its details, with a way to the meetings screen to change it
   function open(m: CalMeeting) {
-    router.push(`/meetings/${m.id}`);
-  }
-
-  /** a tap on a free spot books a meeting there, on the half hour; the time can then be changed to any minute */
-  function book(e: React.MouseEvent<HTMLDivElement>, day: string) {
-    if (!p.canCreate || (e.target as HTMLElement).closest(".cev")) return;
-    const y = e.clientY - e.currentTarget.getBoundingClientRect().top;
-    const mins = p.startHour * 60 + Math.floor(y / (hourPx(p.mode) / 60) / 30) * 30;
-    const when = parseKey(day);
-    when.setHours(Math.floor(mins / 60), mins % 60);
-    if (when.getDay() === 6 || when.getTime() < Date.now()) return;
-    sheets.newMeeting({ day, time: pad(Math.floor(mins / 60)) + ":" + pad(mins % 60) });
+    drawer.open({ title: m.name, content: <MeetingPeek m={m} /> });
   }
 
   if (p.mode === "month") return <MonthGrid {...p} byDay={byDay} open={open} />;
@@ -156,7 +144,6 @@ export function MeetingsCalendar(p: CalendarProps) {
       columns={columns}
       now={now}
       open={open}
-      book={book}
       empty={p.byPerson ? false : p.mode === "day" && !(byDay.get(day0) ?? []).length}
     />
   );
@@ -170,8 +157,6 @@ function TimeGrid({
   columns,
   now,
   open,
-  book,
-  canCreate,
   dayHref,
   byPerson,
   empty,
@@ -179,7 +164,6 @@ function TimeGrid({
   columns: { key: string; title: string; sub: string; day: string; list: CalMeeting[] }[];
   now: number | null;
   open: (m: CalMeeting) => void;
-  book: (e: React.MouseEvent<HTMLDivElement>, day: string) => void;
   empty: boolean;
 }) {
   const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
@@ -264,9 +248,8 @@ function TimeGrid({
           {columns.map((c) => (
             <div
               key={c.key}
-              className={"cal-col" + (c.day === todayKey && !byPerson ? " today" : "") + (c.key === sel ? " sel" : "") + (canCreate ? " can" : "")}
+              className={"cal-col" + (c.day === todayKey && !byPerson ? " today" : "") + (c.key === sel ? " sel" : "")}
               style={{ height, ["--hour" as string]: HOUR_PX + "px" }}
-              onClick={(e) => book(e, c.day)}
             >
               {place(c.list, startHour, PX).map(({ m, top, lane, lanes }) => (
                 <button
@@ -297,7 +280,7 @@ function TimeGrid({
           ))}
         </div>
       </div>
-      {empty && <p className="cal-empty">אין פגישות ביום הזה.{canCreate ? " לחיצה על שעה ביומן קובעת בה פגישה." : ""}</p>}
+      {empty && <p className="cal-empty">אין פגישות ביום הזה.</p>}
     </div>
   );
 }
@@ -336,6 +319,66 @@ function MonthGrid({ days, month, todayKey, byDay, open, dayHref }: CalendarProp
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+/** A meeting's details, read only. Changing it happens on its card, on the meetings screen. */
+function MeetingPeek({ m }: { m: CalMeeting }) {
+  const drawer = useDrawer();
+  const start = new Date(m.startAt);
+  return (
+    <div className="sheet-body peek">
+      <p className="peek-when">
+        <b>
+          {dayFull(start)} בשעה {fT(start)}
+        </b>
+        <MeetingStatePill status={m.status} confirmed={m.confirmed} />
+      </p>
+      <dl className="kv">
+        <dt>איפה</dt>
+        <dd>{m.place || "משרד"}</dd>
+        {(m.projectName || m.subject) && (
+          <>
+            <dt>{m.projectName ? "פרויקט" : "נושא"}</dt>
+            <dd>{m.projectName || m.subject}</dd>
+          </>
+        )}
+        <dt>נפגשים עם</dt>
+        <dd>{m.hostName ?? <span className="muted">לא נקבע</span>}</dd>
+        <dt>נקבעה ע״י</dt>
+        <dd>{m.setByName ?? <span className="muted">לא ידוע</span>}</dd>
+        {m.phoneRaw && (
+          <>
+            <dt>טלפון</dt>
+            <dd>
+              <a className="ltr" href={`tel:${m.phoneRaw}`}>
+                {formatPhone(m.phoneRaw)}
+              </a>
+            </dd>
+          </>
+        )}
+        {m.source && (
+          <>
+            <dt>מקור הגעה</dt>
+            <dd>{m.source}</dd>
+          </>
+        )}
+      </dl>
+      {m.note && <p className="peek-note">{m.note}</p>}
+      <div className="peek-acts">
+        {/* the window closes as the card opens */}
+        <Link className="btn primary" href={`/meetings/${m.id}`} onClick={drawer.close}>
+          <Icon name="cal" />
+          {m.canEdit ? "לעריכה בכרטיס הפגישה" : "לכרטיס הפגישה"}
+        </Link>
+        {m.leadId && (
+          <Link className="btn ghost" href={`/leads/${m.leadId}`} onClick={drawer.close}>
+            <Icon name="users" />
+            לכרטיס הלקוח
+          </Link>
+        )}
       </div>
     </div>
   );

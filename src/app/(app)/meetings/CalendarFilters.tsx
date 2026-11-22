@@ -36,7 +36,9 @@ export function CalendarFilters({
   function set(change: Partial<Chosen>) {
     const f = { ...shown, ...change };
     const next = new URLSearchParams(params.toString());
-    next.set("view", view);
+    // the calendar has its own screen; on the meetings screen the list is the view
+    if (view === "list") next.set("view", "list");
+    else next.delete("view");
     for (const [k, v] of [
       ["person", f.person],
       ["project", f.project],
