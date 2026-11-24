@@ -493,3 +493,58 @@ model ArchiveRecord {
   @@index([phone])
   @@index([batchId])
 }
+
+// ---------------------------------------------------------------- Facebook and Instagram Lead Ads
+
+/// A Facebook page connected for Lead Ads: leads from its forms come in by themselves.
+model MetaPage {
+  /// the page's id on Facebook
+  id            String     @id
+  name          String
+  /// the page access token, encrypted (see src/lib/meta.ts)
+  token         String
+  active        Boolean    @default(true)
+  connectedById String?
+  connectedAt   DateTime   @default(now())
+  lastLeadAt    DateTime?
+  /// the last time leads were pulled from the page's forms (a safety net next to the webhook)
+  lastPullAt    DateTime?
+  /// the last error from Facebook, shown on the intake screen until a lead comes in
+  lastError     String?
+  /// a lead supplier's page, connected through an invite: its leads come in with the supplier's source and project
+  supplier      String?
+  source        String?
+  projectId     String?
+  inviteId      String?
+  forms         MetaForm[]
+}
+
+/// A link a lead supplier opens to connect their own Facebook page, without an account in the system.
+model MetaInvite {
+  id          String    @id @default(cuid())
+  /// SHA-256 of the link's secret part; the link itself is shown once
+  hash        String    @unique
+  supplier    String
+  source      String
+  projectId   String?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  usedAt      DateTime?
+  revokedAt   DateTime?
+}
+
+/// A Lead Ads form, and the project its leads go to.
+model MetaForm {
+  /// the form's id on Facebook
+  id         String    @id
+  pageId     String
+  page       MetaPage  @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  name       String
+  projectId  String?
+  leads      Int       @default(0)
+  lastLeadAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([pageId])
+}

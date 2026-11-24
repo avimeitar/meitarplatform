@@ -68,3 +68,21 @@ pre.ik-code{max-height:260px;overflow:auto}
 .ik-msg{margin:0;padding:10px 12px;border-radius:10px;background:#F4F6FA;white-space:pre-wrap;line-height:1.55;font-size:var(--fs-1);overflow-wrap:anywhere}
 .ik-note{margin:10px 2px 0;font-size:var(--fs-1)}
 @media (max-width:760px){.ik-send > *{flex:1 1 140px;justify-content:center}}
+/* Facebook and Instagram Lead Ads */
+.meta .panel h3{margin:0 0 8px}
+.meta-acts{display:flex;flex-wrap:wrap;gap:8px}
+.meta-note{margin:12px 0 0;font-size:var(--fs-1)}
+.meta-pages{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.meta-pages li{padding:12px;border:1px solid var(--line-soft);border-radius:12px}
+.meta-pages li.off{opacity:.6}
+.meta-page-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.meta-page-head .btn{margin-inline-start:auto}
+.meta-forms{margin-top:10px}
+.meta-forms .sel select{min-width:160px}
+.meta-invites{margin-top:12px}
+.meta-setup{display:grid;gap:10px;margin:8px 0 0}
+.meta-setup div{display:grid;gap:4px}
+.meta-setup dt{font-size:var(--fs-1);color:var(--ink-2);font-weight:500}
+.meta-setup dd{display:flex;gap:8px;align-items:center;margin:0}
+.meta-setup .ik-code{flex:1;min-width:0}
+.ok-line{background:#E8F6EE;color:#1F6B43}

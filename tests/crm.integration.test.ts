@@ -1,5 +1,6 @@
 // Runs against a real PostgreSQL database: TEST_DATABASE_URL=... npm test
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createHmac } from "node:crypto";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 const url = process.env.TEST_DATABASE_URL;
 const d = url ? describe : describe.skip;
@@ -15,7 +16,7 @@ d("CRM rules on a real database", () => {
     ({ prisma } = await import("@/lib/db"));
     crm = await import("@/lib/crm/service");
     undo = await import("@/lib/undo");
-    await prisma.$executeRawUnsafe('TRUNCATE "Lead", "Activity", "Meeting", "Task", "Inquiry", "ActionLog", "PushSubscription", "ArchiveRecord", "ArchiveBatch", "session", "account", "user", "Role" CASCADE');
+    await prisma.$executeRawUnsafe('TRUNCATE "Lead", "Activity", "Meeting", "Task", "Inquiry", "ActionLog", "PushSubscription", "ArchiveRecord", "ArchiveBatch", "MetaForm", "MetaPage", "MetaInvite", "session", "account", "user", "Role" CASCADE');
     const role = await prisma.role.create({ data: { key: "agent", name: "סוכן", permissions: ["leads.view_all", "leads.create", "leads.edit"] } });
     const u = await prisma.user.create({ data: { id: "u-test", name: "סוכנת בדיקה", email: "t@users.meitar.invalid", roleId: role.id, autoAssign: true } });
     by = { id: u.id, name: u.name };
@@ -324,6 +325,90 @@ d("CRM rules on a real database", () => {
     const { leadId } = await newLead("+972500000105");
     const { undoId } = await undo.withUndo(by.id, "note", (tx, rec) => crm.addActivity(tx, rec, leadId, { kind: "note", text: "x" }));
     expect((await undo.undo("someone-else", undoId as string)).ok).toBe(false);
+  });
+
+  it("Facebook Lead Ads: a lead from the webhook comes in once, a supplier's page keeps its source, and a form's leads can be pulled", async () => {
+    process.env.BETTER_AUTH_SECRET ||= "test-secret-for-meta-0123456789";
+    process.env.META_APP_ID = "1234";
+    process.env.META_APP_SECRET = "app-secret";
+    const meta = await import("@/lib/meta");
+    const leads = await import("@/lib/metaLeads");
+    const webhook = await import("@/app/api/meta/webhook/route");
+    const t = Date.now() % 1_000_000;
+    const project = await prisma.project.create({ data: { name: `חדרה מטא ${t}`, fullName: "חדרה", place: "" } });
+    const supplierProject = await prisma.project.create({ data: { name: `אתונה מטא ${t}`, fullName: "אתונה", place: "" } });
+    await prisma.metaPage.create({ data: { id: "111", name: "מיתר", token: meta.sealToken("PAGE-TOKEN-1") } });
+    await prisma.metaPage.create({ data: { id: "222", name: "עמוד של ספק", token: meta.sealToken("PAGE-TOKEN-2"), supplier: "צביקה", source: "צביקה - פייסבוק", projectId: supplierProject.id } });
+    const answers = (phone: string, name: string) => [
+      { name: "full_name", values: [name] },
+      { name: "phone_number", values: [phone] },
+    ];
+    const graph: Record<string, unknown> = {
+      "9001": { id: "9001", form_id: "555", created_time: "2026-11-24T08:00:00+0000", field_data: answers("+972500000951", "דנה מפייסבוק"), campaign_name: "חדרה סתיו", platform: "fb" },
+      "9002": { id: "9002", form_id: "666", created_time: "2026-11-24T08:05:00+0000", field_data: answers("+972500000952", "רון מספק"), platform: "fb" },
+      "555": { name: "טופס חדרה" },
+      "666": { name: "טופס הספק" },
+      "111/leadgen_forms": { data: [{ id: "555", name: "טופס חדרה" }] },
+      "555/leads": {
+        data: [
+          { id: "9001", form_id: "555", created_time: "2026-11-24T08:00:00+0000", field_data: answers("+972500000951", "דנה מפייסבוק"), platform: "fb" },
+          { id: "9003", form_id: "555", created_time: "2026-11-24T09:00:00+0000", field_data: answers("+972500000953", "נועה מאינסטגרם"), platform: "ig" },
+        ],
+      },
+    };
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", async (input: string | URL) => {
+      const url = new URL(String(input));
+      calls.push(url.pathname);
+      // every call is signed with the page token's proof
+      if (!url.searchParams.get("appsecret_proof")) return new Response(JSON.stringify({ error: { message: "no proof" } }), { status: 400 });
+      const key = url.pathname.replace(/^\/v\d+\.\d+\//, "");
+      const body = graph[key];
+      return body ? new Response(JSON.stringify(body)) : new Response(JSON.stringify({ error: { message: `unknown ${key}`, code: 100 } }), { status: 400 });
+    });
+    const deliver = async (pageId: string, leadgenId: string, secret = "app-secret") => {
+      const raw = JSON.stringify({ object: "page", entry: [{ id: pageId, time: 1, changes: [{ field: "leadgen", value: { leadgen_id: leadgenId, page_id: pageId, form_id: "555", created_time: 1 } }] }] });
+      const sig = "sha256=" + createHmac("sha256", secret).update(raw).digest("hex");
+      return webhook.POST(new Request("http://localhost/api/meta/webhook", { method: "POST", body: raw, headers: { "x-hub-signature-256": sig } }));
+    };
+    try {
+      // Meta checks the address with the verify word
+      const check = await webhook.GET(new Request(`http://localhost/api/meta/webhook?hub.mode=subscribe&hub.verify_token=${meta.metaVerifyToken()}&hub.challenge=abc`));
+      expect(await check.text()).toBe("abc");
+      expect((await webhook.GET(new Request("http://localhost/api/meta/webhook?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=abc"))).status).toBe(403);
+      // a delivery signed with another secret is turned away
+      expect((await deliver("111", "9001", "not-the-secret")).status).toBe(401);
+      // a lead from our page: in, with Facebook as the source and the campaign
+      expect((await deliver("111", "9001")).status).toBe(200);
+      const dana = await prisma.lead.findUniqueOrThrow({ where: { phone: "+972500000951" }, include: { inquiries: true } });
+      expect(dana.name).toBe("דנה מפייסבוק");
+      expect(dana.source).toBe("פייסבוק");
+      expect(dana.inquiries[0].campaign).toBe("חדרה סתיו");
+      expect(dana.inquiries[0].page).toBe("טופס חדרה");
+      expect((await prisma.metaForm.findUniqueOrThrow({ where: { id: "555" } })).name).toBe("טופס חדרה");
+      // the same lead again (Meta retries, or the safety net): still one inquiry
+      expect((await deliver("111", "9001")).status).toBe(200);
+      expect(await prisma.inquiry.count({ where: { leadId: dana.id } })).toBe(1);
+      // a supplier's page: the supplier's source and project
+      expect((await deliver("222", "9002")).status).toBe(200);
+      const ron = await prisma.lead.findUniqueOrThrow({ where: { phone: "+972500000952" } });
+      expect(ron.source).toBe("צביקה - פייסבוק");
+      expect(ron.projectId).toBe(supplierProject.id);
+      // a page that is not connected: nothing happens
+      expect((await deliver("333", "9009")).status).toBe(200);
+      // the form goes to a project, and pulling brings what the webhook missed (from Instagram), once
+      await prisma.metaForm.update({ where: { id: "555" }, data: { projectId: project.id } });
+      const page = await prisma.metaPage.findUniqueOrThrow({ where: { id: "111" } });
+      const pulled = await leads.pullPage(meta.metaConfig()!, page, new Date(Date.now() - 86_400_000));
+      expect(pulled).toEqual({ created: 1, merged: 0, forms: 1 });
+      const noa = await prisma.lead.findUniqueOrThrow({ where: { phone: "+972500000953" } });
+      expect(noa.source).toBe("אינסטגרם");
+      expect(noa.projectId).toBe(project.id);
+      expect((await prisma.metaForm.findUniqueOrThrow({ where: { id: "555" } })).leads).toBe(2);
+      expect(calls.some((c) => c.endsWith("/555/leads"))).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   // last: it empties the working system

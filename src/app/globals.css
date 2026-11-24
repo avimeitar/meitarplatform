@@ -1162,3 +1162,9 @@ a.cev,a.mev{text-decoration:none}
 .ar-meeting{padding:10px 0;border-top:1px solid var(--line-soft)}
 .ar-meeting:first-of-type{border-top:0}
 .ar-back{margin-bottom:10px}
+/* public pages: the privacy policy, data deletion, and a supplier connecting their Facebook page */
+.legal{max-width:760px;margin:0 auto;padding:32px 20px 60px;background:var(--surface);min-height:100vh;line-height:1.7}
+.legal h1{font-size:var(--fs-4,26px);color:var(--navy)}
+.legal h2{margin-top:24px;font-size:var(--fs-3)}
+.legal hr{margin:32px 0;border:0;border-top:1px solid var(--line)}
+.connect-points{margin:0 0 18px;padding-inline-start:20px;text-align:start;line-height:1.6;color:var(--ink-2)}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createApiKeyAction, revokeApiKeyAction, type NewApiKey } from "@/app/actions/intake";
 import { Icon } from "@/components/Icon";
 import { useShellData } from "@/components/ShellData";
@@ -36,7 +36,7 @@ function useCopy() {
   };
 }
 
-export function IntakeScreen({ keys, projects, fields, endpoint }: { keys: KeyRow[]; projects: ProjectOption[]; fields: FieldDoc[]; endpoint: string }) {
+export function IntakeScreen({ keys, projects, fields, endpoint, meta }: { keys: KeyRow[]; projects: ProjectOption[]; fields: FieldDoc[]; endpoint: string; meta?: ReactNode }) {
   const drawer = useDrawer();
   const copy = useCopy();
   const active = keys.filter((k) => k.active);
@@ -93,6 +93,8 @@ export function IntakeScreen({ keys, projects, fields, endpoint }: { keys: KeyRo
           </div>
         </>
       )}
+
+      {meta}
 
       <h2 className="sec-h">פרטים טכניים לחיבור</h2>
       <div className="panel ik-tech">

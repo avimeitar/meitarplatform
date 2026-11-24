@@ -144,6 +144,16 @@ try {
   const sent = await fetch(`${supplierLink}&name=${encodeURIComponent("ליד מספק")}&phone=${supplierPhone}`);
   ok("a supplier sends a lead with the details in the link", sent.status === 201 || sent.status === 200, sent.status);
   await a.keyboard.press("Escape");
+  // Facebook and Instagram Lead Ads: before the Meta app is set, the screen lists what to enter there
+  await a.goto(`${BASE}/intake#meta`);
+  const setupText = (await a.locator("#meta").innerText().catch(() => "")) || "";
+  ok("the intake screen shows the Facebook connection and what Meta needs", setupText.includes("/api/meta/webhook") && setupText.includes("/api/meta/callback") && setupText.includes("/privacy"));
+  const verify = ((await a.locator('#meta .meta-setup div:has(dt:text-is("Webhook: Verify token")) code').textContent().catch(() => "")) || "").trim();
+  const challenge = await fetch(`${BASE}/api/meta/webhook?hub.mode=subscribe&hub.verify_token=${verify}&hub.challenge=hello`);
+  ok("Meta's check of the webhook address passes with the verify word", challenge.status === 200 && (await challenge.text()) === "hello");
+  ok("and fails with any other word", (await fetch(`${BASE}/api/meta/webhook?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=x`)).status === 403);
+  ok("the privacy policy and data deletion pages are public", (await fetch(`${BASE}/privacy`)).status === 200 && (await fetch(`${BASE}/data-deletion`)).status === 200);
+  ok("an unknown supplier link says so", (await (await fetch(`${BASE}/connect/facebook/not-a-real-link-0123456789`)).text()).includes("הקישור לא בתוקף"));
 
   // ---- the rep's day on a phone ----
   const p = await (await browser.newContext(phone)).newPage();

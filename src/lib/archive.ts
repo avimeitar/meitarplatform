@@ -208,6 +208,10 @@ export async function archiveAll(by: { id: string; name: string }, keepProjectId
         await tx.meeting.updateMany({ where: { projectId: { in: gone } }, data: { projectId: null } });
         await tx.inquiry.updateMany({ where: { projectId: { in: gone } }, data: { projectId: null } });
         await tx.apiKey.updateMany({ where: { projectId: { in: gone } }, data: { projectId: null } });
+        // Facebook forms, supplier pages and their links that pointed at a project that left
+        await tx.metaForm.updateMany({ where: { projectId: { in: gone } }, data: { projectId: null } });
+        await tx.metaPage.updateMany({ where: { projectId: { in: gone } }, data: { projectId: null } });
+        await tx.metaInvite.updateMany({ where: { projectId: { in: gone } }, data: { projectId: null } });
         await tx.project.deleteMany({ where: { id: { in: gone } } });
       }
       return { batchId: batch.id, counts, kept };

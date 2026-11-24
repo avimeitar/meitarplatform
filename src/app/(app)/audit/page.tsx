@@ -16,6 +16,7 @@ const GROUPS: Record<string, string> = {
   meeting: "פגישות",
   hours: "שעות עבודה",
   apikey: "קליטת לידים",
+  meta: "פייסבוק",
   project: "פרויקטים",
   settings: "הגדרות",
   archive: "ארכיון",
@@ -34,6 +35,8 @@ function describe(meta: unknown): string {
   if (typeof m.count === "number") parts.push(`${m.count} לקוחות`);
   if (typeof m.meetings === "number") parts.push(`${m.meetings} פגישות, ${m.tasks ?? 0} משימות, ${m.projects ?? 0} פרויקטים`);
   if (typeof m.kept === "string") parts.push(`נשארו: ${m.kept}`);
+  if (typeof m.pages === "string") parts.push(m.pages);
+  if (typeof m.supplier === "string") parts.push(`ספק: ${m.supplier}`);
   if (Array.isArray(m.added) && m.added.length) parts.push("נוסף: " + m.added.join(", "));
   if (Array.isArray(m.removed) && m.removed.length) parts.push("הוסר: " + m.removed.join(", "));
   if (m.smsSent === true) parts.push("נשלח ב-SMS");
