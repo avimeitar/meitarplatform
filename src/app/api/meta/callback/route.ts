@@ -38,8 +38,11 @@ export async function GET(req: Request) {
   if (q.get("error") || !q.get("code")) return back("denied");
 
   try {
-    const pages = await pagesFromLogin(cfg, q.get("code") as string);
-    if (!pages.length) return back("nopages");
+    const login = await pagesFromLogin(cfg, q.get("code") as string);
+    const pages = login.pages;
+    // what Facebook gave, for the logs (never a token): pages listed, pages granted in the dialog, pages read by id
+    console.info(`[meta] connect: /me/accounts listed ${login.listed}, granted ${login.granted}, loaded by id ${login.loaded}, usable ${pages.length}` + (login.failures.length ? `; ${login.failures.join(" | ").slice(0, 500)}` : ""));
+    if (!pages.length) return back("nopages", login.failures.length ? `&why=${encodeURIComponent(login.failures[0].slice(0, 200))}` : "");
     let subscribed = 0;
     for (const p of pages) {
       let lastError: string | null = null;

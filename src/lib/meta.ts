@@ -123,8 +123,15 @@ export function loginUrl(cfg: MetaConfig, state: string): string {
   return `https://www.facebook.com/${cfg.graph}/dialog/oauth?${q}`;
 }
 
-/** The code from signing in → a long-lived user token → the pages, each with a token that does not expire. */
-export async function pagesFromLogin(cfg: MetaConfig, code: string): Promise<{ id: string; name: string; token: string }[]> {
+export type LoginPages = { pages: { id: string; name: string; token: string }[]; listed: number; granted: number; loaded: number; failures: string[] };
+
+/**
+ * The code from signing in → a long-lived user token → the pages, each with a token that does not expire.
+ * /me/accounts lists the pages the person manages directly. A page they reach through a Business portfolio
+ * (with Facebook Login for Business) can be missing from it, so the pages the person granted in the dialog are
+ * also read from the token itself (debug_token's granular scopes), and each is asked for by its id.
+ */
+export async function pagesFromLogin(cfg: MetaConfig, code: string): Promise<LoginPages> {
   const short = await graph<{ access_token: string }>(cfg, "oauth/access_token", null, { client_id: cfg.appId, client_secret: cfg.appSecret, redirect_uri: metaUrls().callback, code });
   const long = await graph<{ access_token: string }>(cfg, "oauth/access_token", null, {
     grant_type: "fb_exchange_token",
@@ -132,20 +139,50 @@ export async function pagesFromLogin(cfg: MetaConfig, code: string): Promise<{ i
     client_secret: cfg.appSecret,
     fb_exchange_token: short.access_token,
   });
-  const pages: { id: string; name: string; token: string }[] = [];
+  const user = long.access_token;
+  const found = new Map<string, { id: string; name: string; token: string }>();
+  const failures: string[] = [];
+
+  let listed = 0;
   let after: string | undefined;
   for (let i = 0; i < 10; i++) {
-    const r = await graph<{ data: { id: string; name: string; access_token?: string }[]; paging?: { cursors?: { after?: string }; next?: string } }>(cfg, "me/accounts", long.access_token, {
+    const r = await graph<{ data: { id: string; name: string; access_token?: string }[]; paging?: { cursors?: { after?: string }; next?: string } }>(cfg, "me/accounts", user, {
       fields: "id,name,access_token",
       limit: "100",
       ...(after ? { after } : {}),
     });
-    for (const p of r.data) if (p.access_token) pages.push({ id: p.id, name: p.name, token: p.access_token });
+    listed += r.data.length;
+    for (const p of r.data) if (p.access_token) found.set(p.id, { id: p.id, name: p.name, token: p.access_token });
     after = r.paging?.next ? r.paging.cursors?.after : undefined;
     if (!after) break;
   }
-  return pages;
+
+  // the pages granted in the dialog, as the token itself says (an app token asks: no proof is sent for it)
+  const granted = new Set<string>();
+  try {
+    const dbg = await graph<{ data?: { granular_scopes?: { scope: string; target_ids?: string[] }[] } }>(cfg, "debug_token", null, { input_token: user, access_token: `${cfg.appId}|${cfg.appSecret}` });
+    for (const g of dbg.data?.granular_scopes ?? []) if (PAGE_SCOPES.includes(g.scope)) for (const id of g.target_ids ?? []) if (/^\d+$/.test(id)) granted.add(id);
+  } catch (e) {
+    failures.push(`debug_token: ${e instanceof MetaError ? `${e.code ?? ""} ${e.message}` : "failed"}`);
+  }
+  let loaded = 0;
+  for (const id of granted) {
+    if (found.has(id)) continue;
+    try {
+      const p = await graph<{ id: string; name?: string; access_token?: string }>(cfg, id, user, { fields: "id,name,access_token" });
+      if (p.access_token) {
+        found.set(p.id, { id: p.id, name: p.name || `עמוד ${p.id}`, token: p.access_token });
+        loaded++;
+      } else failures.push(`page ${id}: no page token`);
+    } catch (e) {
+      failures.push(`page ${id}: ${e instanceof MetaError ? `${e.code ?? ""} ${e.message}` : "failed"}`);
+    }
+  }
+  return { pages: [...found.values()], listed, granted: granted.size, loaded, failures };
 }
+
+/** Permissions whose grant names the pages chosen in the dialog. */
+const PAGE_SCOPES = ["pages_show_list", "pages_manage_metadata", "leads_retrieval", "pages_read_engagement", "pages_manage_ads"];
 
 /** Leads from the page's forms reach this app's webhook. */
 export const subscribePage = (cfg: MetaConfig, pageId: string, token: string) => graph<{ success: boolean }>(cfg, `${pageId}/subscribed_apps`, token, { subscribed_fields: "leadgen" }, "POST");

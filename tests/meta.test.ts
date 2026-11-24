@@ -1,7 +1,7 @@
 // Facebook and Instagram Lead Ads: the checks on what Meta sends, and what is asked of Meta.
 import { createHmac } from "node:crypto";
-import { beforeAll, describe, expect, it } from "vitest";
-import { leadFields, leadgenChanges, loginUrl, META_PERMISSIONS, metaConfig, metaVerifyToken, openToken, sealToken, signatureOk } from "@/lib/meta";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { leadFields, leadgenChanges, loginUrl, META_PERMISSIONS, metaConfig, metaVerifyToken, openToken, pagesFromLogin, sealToken, signatureOk } from "@/lib/meta";
 import { mapLeadFields } from "@/lib/intake";
 
 beforeAll(() => {
@@ -78,5 +78,53 @@ describe("signing in and the lead's answers", () => {
     expect(m.ok && m.lead.name).toBe("דנה כהן");
     expect(m.ok && m.lead.phone).toBe("+972501234567");
     expect(m.ok && m.lead.email).toBe("dana@example.com");
+  });
+});
+
+describe("the pages a person chose when connecting", () => {
+  it("a page reached through a Business portfolio is found even when /me/accounts lists nothing", async () => {
+    const seen: string[] = [];
+    vi.stubGlobal("fetch", async (input: string | URL) => {
+      const url = new URL(String(input));
+      const path = url.pathname.replace(/^\/v\d+\.\d+\//, "");
+      seen.push(path);
+      const json = (b: unknown) => new Response(JSON.stringify(b));
+      if (path === "oauth/access_token") return json({ access_token: url.searchParams.get("code") ? "SHORT" : "LONG" });
+      if (path === "me/accounts") return json({ data: [] });
+      if (path === "debug_token") {
+        // asked with the app's token, never with a proof of it
+        expect(url.searchParams.get("access_token")).toBe("1234|app-secret");
+        expect(url.searchParams.get("appsecret_proof")).toBeNull();
+        return json({ data: { granular_scopes: [{ scope: "pages_show_list", target_ids: ["1234041056470215"] }, { scope: "leads_retrieval", target_ids: ["1234041056470215"] }, { scope: "business_management" }] } });
+      }
+      if (path === "1234041056470215") return json({ id: "1234041056470215", name: "המרכז להשקעות בקרקע", access_token: "PAGE" });
+      return new Response(JSON.stringify({ error: { message: "unexpected " + path } }), { status: 400 });
+    });
+    try {
+      const r = await pagesFromLogin(metaConfig()!, "the-code");
+      expect(r.pages).toEqual([{ id: "1234041056470215", name: "המרכז להשקעות בקרקע", token: "PAGE" }]);
+      expect({ listed: r.listed, granted: r.granted, loaded: r.loaded, failures: r.failures }).toEqual({ listed: 0, granted: 1, loaded: 1, failures: [] });
+      expect(seen.filter((p) => p === "1234041056470215").length).toBe(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("a page listed by /me/accounts is not asked for again", async () => {
+    vi.stubGlobal("fetch", async (input: string | URL) => {
+      const path = new URL(String(input)).pathname.replace(/^\/v\d+\.\d+\//, "");
+      const json = (b: unknown) => new Response(JSON.stringify(b));
+      if (path === "oauth/access_token") return json({ access_token: "T" });
+      if (path === "me/accounts") return json({ data: [{ id: "55", name: "עמוד", access_token: "P55" }] });
+      if (path === "debug_token") return json({ data: { granular_scopes: [{ scope: "pages_show_list", target_ids: ["55"] }] } });
+      return new Response(JSON.stringify({ error: { message: "should not be asked: " + path } }), { status: 400 });
+    });
+    try {
+      const r = await pagesFromLogin(metaConfig()!, "c");
+      expect(r.pages.map((p) => p.id)).toEqual(["55"]);
+      expect(r.failures).toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
