@@ -30,6 +30,7 @@ export const BACKUP_TABLES = [
   "metaPage",
   "metaForm",
   "metaInvite",
+  "sourceCode",
   "auditLog",
   "archiveBatch",
   "archiveRecord",

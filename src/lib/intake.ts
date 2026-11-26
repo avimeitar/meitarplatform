@@ -214,11 +214,13 @@ export const NO_NAME = "ללא שם";
 
 // Field names after normKey(), in order of preference. Hebrew names come from forms built in Hebrew.
 const ALIASES = {
-  name: ["name", "full_name", "fullname", "your_name", "client_name", "customer_name", "contact_name", "lead_name", "שם", "שם_מלא", "השם", "שם_הלקוח", "שם_ושם_משפחה"],
+  // accountname, telephone1, emailaddress1 and originatingleadcode: what suppliers sent to Fireberry, so they only change the address
+  name: ["name", "full_name", "fullname", "your_name", "client_name", "customer_name", "contact_name", "lead_name", "accountname", "account_name", "שם", "שם_מלא", "השם", "שם_הלקוח", "שם_ושם_משפחה"],
   first: ["first_name", "firstname", "fname", "given_name", "שם_פרטי"],
   last: ["last_name", "lastname", "lname", "surname", "family_name", "שם_משפחה"],
-  phone: ["phone", "phone_number", "phonenumber", "tel", "telephone", "mobile", "mobile_phone", "mobile_number", "cell", "cellphone", "cell_phone", "your_phone", "your_tel", "טלפון", "מספר_טלפון", "טלפון_נייד", "נייד", "פלאפון", "סלולרי"],
-  email: ["email", "e_mail", "email_address", "mail", "your_email", "אימייל", "מייל", "דואל", "דוא_ל", "דואר_אלקטרוני", "כתובת_מייל"],
+  phone: ["phone", "phone_number", "phonenumber", "tel", "telephone", "telephone1", "mobile", "mobile_phone", "mobilephone", "mobile_number", "cell", "cellphone", "cell_phone", "your_phone", "your_tel", "טלפון", "מספר_טלפון", "טלפון_נייד", "נייד", "פלאפון", "סלולרי"],
+  email: ["email", "e_mail", "email_address", "emailaddress1", "emailaddress", "mail", "your_email", "אימייל", "מייל", "דואל", "דוא_ל", "דואר_אלקטרוני", "כתובת_מייל"],
+  sourceCode: ["originatingleadcode", "originating_lead_code", "source_code", "lead_source_code", "קוד_מקור"],
   project: ["project", "project_name", "project_id", "פרויקט", "פרוייקט", "שם_הפרויקט"],
   source: ["source", "lead_source", "מקור", "מקור_הגעה", "מקור_הליד"],
   campaign: ["campaign", "utm_campaign", "campaign_name", "קמפיין"],
@@ -234,6 +236,7 @@ export const FIELD_DOCS: { field: string; label: string; also: string[]; require
   { field: "email", label: "אימייל", also: ["email_address", "אימייל"] },
   { field: "project", label: "שם הפרויקט או המזהה שלו. בלי פרויקט, נכנס הפרויקט של המפתח", also: ["project_name", "פרויקט"] },
   { field: "source", label: "מקור. בלי מקור, נכנס המקור של המפתח", also: ["lead_source", "מקור"] },
+  { field: "source_code", label: "מספר מקור, כמו בפיירברי. מקבל שם ופרויקט במסך הזה", also: ["originatingleadcode"] },
   { field: "campaign", label: "קמפיין", also: ["utm_campaign", "campaign_name"] },
   { field: "page", label: "הדף או הטופס שממנו נשלח הליד", also: ["page_url", "url", "form_name"] },
   { field: "consent", label: "הסכמה לקבל דיוור: true, ‏on או 1", also: ["marketing_consent", "הסכמה"] },
@@ -303,6 +306,8 @@ export type IntakeLead = {
   email: string | null;
   project: string | null; // a project id or name, resolved by the route
   source: string | null;
+  /** a source by its number, as suppliers sent it to Fireberry; named on the intake screen */
+  sourceCode: string | null;
   campaign: string | null;
   page: string | null;
   consent: boolean;
@@ -346,6 +351,7 @@ export function mapLeadFields(body: Body): MapResult {
       email,
       project: pick("project", 200),
       source: pick("source", 60),
+      sourceCode: pick("sourceCode", 40),
       campaign: pick("campaign", 200),
       page: pick("page", 500),
       consent: given(raw("consent")),

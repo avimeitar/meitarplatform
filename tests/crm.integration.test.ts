@@ -16,7 +16,7 @@ d("CRM rules on a real database", () => {
     ({ prisma } = await import("@/lib/db"));
     crm = await import("@/lib/crm/service");
     undo = await import("@/lib/undo");
-    await prisma.$executeRawUnsafe('TRUNCATE "Lead", "Activity", "Meeting", "Task", "Inquiry", "ActionLog", "PushSubscription", "ArchiveRecord", "ArchiveBatch", "MetaForm", "MetaPage", "MetaInvite", "session", "account", "user", "Role" CASCADE');
+    await prisma.$executeRawUnsafe('TRUNCATE "Lead", "Activity", "Meeting", "Task", "Inquiry", "ActionLog", "PushSubscription", "ArchiveRecord", "ArchiveBatch", "MetaForm", "MetaPage", "MetaInvite", "SourceCode", "session", "account", "user", "Role" CASCADE');
     const role = await prisma.role.create({ data: { key: "agent", name: "סוכן", permissions: ["leads.view_all", "leads.create", "leads.edit"] } });
     const u = await prisma.user.create({ data: { id: "u-test", name: "סוכנת בדיקה", email: "t@users.meitar.invalid", roleId: role.id, autoAssign: true } });
     by = { id: u.id, name: u.name };
@@ -325,6 +325,41 @@ d("CRM rules on a real database", () => {
     const { leadId } = await newLead("+972500000105");
     const { undoId } = await undo.withUndo(by.id, "note", (tx, rec) => crm.addActivity(tx, rec, leadId, { kind: "note", text: "x" }));
     expect((await undo.undo("someone-else", undoId as string)).ok).toBe(false);
+  });
+
+  it("a supplier who sent leads to Fireberry changes only the address: the source number gets its name, before or after", async () => {
+    const route = await import("@/app/api/v1/leads/route");
+    const codes = await import("@/lib/sourceCodes");
+    const { generateApiKey } = await import("@/lib/intake");
+    const g = generateApiKey();
+    await prisma.apiKey.create({ data: { name: "דבוש", prefix: g.prefix, hash: g.hash, source: "דבוש" } });
+    const project = await prisma.project.create({ data: { name: `מטרו רעננה ${Date.now() % 1_000_000}`, fullName: "מטרו רעננה", place: "" } });
+    // exactly what the supplier sent to Fireberry (webtoaccount.aspx), as a form
+    const send = (phone: string, code: string) =>
+      route.POST(
+        new Request(`http://localhost/api/v1/leads?key=${g.key}`, {
+          method: "POST",
+          headers: { "content-type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ uid: "BC4E2C45-26D7-465A-A8CA-076757A95783", statuscode: "9", originatingleadcode: code, telephone1: phone, accountname: "בדיקה מספק" }).toString(),
+        }),
+      );
+    // a number nobody named yet: the lead still comes in, marked with the number
+    expect((await send("972500000961", "138")).status).toBe(201);
+    const first = await prisma.lead.findUniqueOrThrow({ where: { phone: "+972500000961" } });
+    expect(first.name).toBe("בדיקה מספק");
+    expect(first.source).toBe("דבוש (קוד 138)");
+    expect((await prisma.sourceCode.findUniqueOrThrow({ where: { code: "138" } })).seen).toBe(1);
+    // the manager names it: the lead that came takes the name and the project
+    expect(await codes.nameSourceCode("138", "מטרו רעננה - דבוש", project.id)).toBe(1);
+    const renamed = await prisma.lead.findUniqueOrThrow({ where: { id: first.id }, include: { inquiries: true } });
+    expect(renamed.source).toBe("מטרו רעננה - דבוש");
+    expect(renamed.projectId).toBe(project.id);
+    expect(renamed.inquiries[0].source).toBe("מטרו רעננה - דבוש");
+    // the next lead with that number comes in named
+    expect((await send("972500000962", "138")).status).toBe(201);
+    const next = await prisma.lead.findUniqueOrThrow({ where: { phone: "+972500000962" } });
+    expect(next.source).toBe("מטרו רעננה - דבוש");
+    expect(next.projectId).toBe(project.id);
   });
 
   it("Facebook Lead Ads: a lead from the webhook comes in once, a supplier's page keeps its source, and a form's leads can be pulled", async () => {

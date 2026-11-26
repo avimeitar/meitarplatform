@@ -86,3 +86,7 @@ pre.ik-code{max-height:260px;overflow:auto}
 .meta-setup dd{display:flex;gap:8px;align-items:center;margin:0}
 .meta-setup .ik-code{flex:1;min-width:0}
 .ok-line{background:#E8F6EE;color:#1F6B43}
+/* source numbers, as suppliers sent them to Fireberry */
+.codes-in{width:100%;min-width:90px;height:36px;padding:0 10px;border:1px solid var(--field-line);border-radius:9px;background:var(--surface)}
+.codes-table tr.waiting{background:#FFF8E6}
+.codes-act{display:flex;align-items:center;gap:6px;white-space:nowrap}

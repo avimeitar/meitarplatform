@@ -8,6 +8,7 @@
 import { createOrMergeLead } from "@/lib/crm/service";
 import { hasDatabase, prisma } from "@/lib/db";
 import { apiKeyFromRequest, apiKeyMatches, fieldsFromQuery, mapLeadFields, NO_NAME, parseApiKey, RateLimiter, readLeadBody, type Body } from "@/lib/intake";
+import { placeholderSource, sourceForCode } from "@/lib/sourceCodes";
 import { Recorder } from "@/lib/undo";
 
 const PER_MINUTE = 120;
@@ -70,13 +71,26 @@ async function take(key: ApiKeyRow, data: Body): Promise<Response> {
   if (!mapped.ok) return fail(400, mapped.error);
   const { lead } = mapped;
   const warnings = [...mapped.warnings];
-  const projectId = await resolveProject(lead.project, key.projectId, warnings);
+  // a source by its number (Fireberry's originatingleadcode): its name and project, once a manager named it
+  let source = lead.source ?? key.source;
+  let codeProject: string | null = null;
+  if (lead.sourceCode) {
+    const named = await sourceForCode(lead.sourceCode, key.name);
+    if (named.source) {
+      source = named.source;
+      codeProject = named.projectId;
+    } else {
+      source = lead.source ?? placeholderSource(key.source, lead.sourceCode);
+      warnings.push(`Source code ${lead.sourceCode} has no name in the CRM yet, so the lead was saved with the source "${source}". It takes the name once the code is named.`);
+    }
+  }
+  const projectId = codeProject ?? (await resolveProject(lead.project, key.projectId, warnings));
 
   const input = {
     name: lead.name ?? NO_NAME,
     phone: lead.phone,
     email: lead.email,
-    source: lead.source ?? key.source,
+    source,
     projectId,
     owner: "auto" as const,
     consent: lead.consent,

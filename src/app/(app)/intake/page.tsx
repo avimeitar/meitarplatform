@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { FIELD_DOCS, maskedKey } from "@/lib/intake";
 import { metaConfig, metaUrls, metaVerifyToken } from "@/lib/meta";
 import { MetaPanel } from "./MetaPanel";
+import { SourceCodes } from "./SourceCodes";
 import { requirePageUser } from "@/lib/session";
 import { IntakeScreen, type KeyRow } from "./IntakeScreen";
 import "./intake.css";
@@ -13,11 +14,12 @@ export const metadata = { title: "קליטת לידים" };
 export default async function IntakePage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   await requirePageUser("settings.manage");
   const sp = await searchParams;
-  const [keys, projects, pages, invites] = await Promise.all([
+  const [keys, projects, pages, invites, codes] = await Promise.all([
     prisma.apiKey.findMany({ orderBy: { createdAt: "desc" } }),
     prisma.project.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true, active: true } }),
     prisma.metaPage.findMany({ orderBy: { connectedAt: "asc" }, include: { forms: { orderBy: { createdAt: "asc" } } } }),
     prisma.metaInvite.findMany({ where: { revokedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: "desc" } }),
+    prisma.sourceCode.findMany(),
   ]);
   const creatorIds = [...new Set(keys.map((k) => k.createdById).filter((id): id is string => !!id))];
   const creators = creatorIds.length ? await prisma.user.findMany({ where: { id: { in: creatorIds } }, select: { id: true, name: true } }) : [];
@@ -58,5 +60,18 @@ export default async function IntakePage({ searchParams }: { searchParams: Promi
       }}
     />
   );
-  return <IntakeScreen keys={rows} projects={open} fields={FIELD_DOCS} endpoint={`${appBaseURL()}/api/v1/leads`} meta={meta} />;
+  // numbers that still need a name first, newest first; then the named ones by number
+  const codeRows = [...codes]
+    .sort((a, b) => (a.source ? 1 : 0) - (b.source ? 1 : 0) || (a.source ? a.code.localeCompare(b.code, "en", { numeric: true }) : (b.lastAt?.getTime() ?? 0) - (a.lastAt?.getTime() ?? 0)))
+    .map((c) => ({ code: c.code, source: c.source, projectId: c.projectId && projectName.has(c.projectId) ? c.projectId : null, seen: c.seen, last: c.lastAt ? relTime(c.lastAt) : null, lastKey: c.lastKey }));
+  return (
+    <IntakeScreen
+      keys={rows}
+      projects={open}
+      fields={FIELD_DOCS}
+      endpoint={`${appBaseURL()}/api/v1/leads`}
+      meta={meta}
+      codes={<SourceCodes rows={codeRows} projects={open} />}
+    />
+  );
 }

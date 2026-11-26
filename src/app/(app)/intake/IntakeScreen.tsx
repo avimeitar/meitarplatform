@@ -36,7 +36,7 @@ function useCopy() {
   };
 }
 
-export function IntakeScreen({ keys, projects, fields, endpoint, meta }: { keys: KeyRow[]; projects: ProjectOption[]; fields: FieldDoc[]; endpoint: string; meta?: ReactNode }) {
+export function IntakeScreen({ keys, projects, fields, endpoint, meta, codes }: { keys: KeyRow[]; projects: ProjectOption[]; fields: FieldDoc[]; endpoint: string; meta?: ReactNode; codes?: ReactNode }) {
   const drawer = useDrawer();
   const copy = useCopy();
   const active = keys.filter((k) => k.active);
@@ -93,6 +93,8 @@ export function IntakeScreen({ keys, projects, fields, endpoint, meta }: { keys:
           </div>
         </>
       )}
+
+      {codes}
 
       {meta}
 
@@ -342,6 +344,7 @@ function supplierMessage(info: NewApiKey, link: string, sender: string): string 
     ...(info.projectName ? [] : ["• שם הפרויקט: project"]),
     "3. מערכת שיודעת רק לפתוח קישור יכולה להוסיף את הפרטים לסוף הקישור, כך:",
     "&name=...&phone=...",
+    "4. אם שלחתם עד היום לידים לפיירברי: מחליפים רק את כתובת ה-url לקישור הזה. כל השאר נשאר כמו שהוא (accountname, telephone1, originatingleadcode).",
     "",
     "לבדיקה: פותחים את הקישור בדפדפן. אם מופיע This link works, החיבור תקין.",
     "תשובה 201 אומרת שהליד נשמר. תשובה 200 אומרת שהטלפון כבר קיים, והפנייה נוספה אליו.",

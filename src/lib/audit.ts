@@ -67,6 +67,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   "lead.bulk_assign": "העברת כמה לקוחות",
   "apikey.create": "יצירת מפתח לקליטת לידים",
   "apikey.revoke": "ביטול מפתח לקליטת לידים",
+  "apikey.source_code": "שם למספר מקור",
   "archive.run": "העברה לארכיון",
   "archive.export": "ייצוא מהארכיון",
   "backup.download": "הורדת גיבוי מלא",

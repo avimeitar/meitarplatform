@@ -548,3 +548,17 @@ model MetaForm {
 
   @@index([pageId])
 }
+
+/// A lead source by its number, the way lead suppliers who worked with Fireberry send it ("originatingleadcode").
+/// A number nobody named yet still brings its leads in; it waits here to be given a name and a project.
+model SourceCode {
+  code      String    @id
+  /// the source's name, as clients show it; null until someone names it
+  source    String?
+  projectId String?
+  seen      Int       @default(0)
+  lastAt    DateTime?
+  /// the intake key it last came with
+  lastKey   String?
+  createdAt DateTime  @default(now())
+}

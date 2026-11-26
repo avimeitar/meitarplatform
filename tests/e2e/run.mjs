@@ -144,7 +144,22 @@ try {
   const sent = await fetch(`${supplierLink}&name=${encodeURIComponent("ליד מספק")}&phone=${supplierPhone}`);
   ok("a supplier sends a lead with the details in the link", sent.status === 201 || sent.status === 200, sent.status);
   await a.keyboard.press("Escape");
-  // Facebook and Instagram Lead Ads: before the Meta app is set, the screen lists what to enter there
+  // a supplier who sent leads to Fireberry changes only the address: same fields, a source by number
+  const code = String(Date.now() % 100000);
+  const fbPhone = String(Math.floor(Math.random() * 1e8)).padStart(8, "0");
+  const fbSent = await fetch(supplierLink, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ uid: "BC4E2C45-26D7", statuscode: "9", originatingleadcode: code, telephone1: "97252" + fbPhone.slice(1), accountname: "ליד בפורמט פיירברי" }).toString(),
+  });
+  ok("a supplier's Fireberry format comes in as it is", fbSent.status === 201 || fbSent.status === 200, fbSent.status);
+  // a fresh load: the screen is already open, and only the hash would change
+  await a.goto(`${BASE}/intake?r=codes#codes`);
+  const codeRow = a.locator(`.codes-table tr.waiting:has(b:text-is("${code}"))`);
+  ok("a source number nobody named yet waits on the intake screen", (await codeRow.count()) === 1);
+  await codeRow.locator("input").first().fill("מטרו רעננה - בדיקה");
+  await codeRow.locator('button:has-text("שמירה")').click();
+  ok("naming the number renames the client who came with it", (await toast(a)).includes("עודכן"));
   await a.goto(`${BASE}/intake#meta`);
   const setupText = (await a.locator("#meta").innerText().catch(() => "")) || "";
   ok("the intake screen shows the Facebook connection and what Meta needs", setupText.includes("/api/meta/webhook") && setupText.includes("/api/meta/callback") && setupText.includes("/privacy"));

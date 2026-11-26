@@ -71,6 +71,14 @@ describe("API keys", () => {
     expect(apiKeyFromRequest(new Headers(), u("?phone=1"))).toBeNull();
   });
 
+  it("reads what suppliers sent to Fireberry: accountname, telephone1 and the source number", () => {
+    const r = mapped({ uid: "BC4E2C45", statuscode: "9", originatingleadcode: "138", telephone1: "972545555555", accountname: "בדיקה אור" });
+    expect(r.lead.name).toBe("בדיקה אור");
+    expect(r.lead.phone).toBe("+972545555555");
+    expect(r.lead.sourceCode).toBe("138");
+    expect(r.lead.source).toBeNull();
+  });
+
   it("takes a lead's fields from the address, without the key", () => {
     const f = fieldsFromQuery(new globalThis.URL(`${URL}?key=mk_a&name=${encodeURIComponent("דנה")}&phone=0501234567&API_KEY=x`));
     expect(f).toEqual({ name: "דנה", phone: "0501234567" });
@@ -186,6 +194,7 @@ describe("field names", () => {
       email: "dana@example.com",
       project: "מטרו רעננה",
       source: "פייסבוק",
+      sourceCode: null,
       campaign: "spring",
       page: "https://meitargroup.co.il/metro",
       consent: true,
@@ -206,7 +215,7 @@ describe("field names", () => {
 
   it("maps Hebrew field names", () => {
     const r = mapped({ "שם פרטי": "דנה", "שם משפחה": "לוי", "טלפון נייד": "052-7654321", "אימייל": "dana@example.co.il", "פרויקט": "אתונה", "מקור": "אתר החברה", "קמפיין": "חורף", "הסכמה": "כן" });
-    expect(r.lead).toEqual({ name: "דנה לוי", phone: "+972527654321", email: "dana@example.co.il", project: "אתונה", source: "אתר החברה", campaign: "חורף", page: null, consent: true });
+    expect(r.lead).toEqual({ name: "דנה לוי", phone: "+972527654321", email: "dana@example.co.il", project: "אתונה", source: "אתר החברה", sourceCode: null, campaign: "חורף", page: null, consent: true });
     expect(mapped({ "שם מלא": "דנה לוי", "טלפון": "0501234567", "דוא״ל": "d@example.com" }).lead).toMatchObject({ name: "דנה לוי", email: "d@example.com" });
   });
 
